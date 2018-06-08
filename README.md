@@ -24,3 +24,7 @@ file.authorization=是否包含登录服务
 
 file.watcher=是否开启watcher组件，用于跟踪一小段间隔检测本地文件的变化情况
 
+## 登录服务访问的路径示例
+
+http://localhost:8080/auth/
+
