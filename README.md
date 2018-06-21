@@ -28,3 +28,6 @@ file.watcher=是否开启watcher组件，用于跟踪一小段间隔检测本地
 
 http://localhost:8080/auth/
 
+## 管理员账户
+
+admin，密码12345678

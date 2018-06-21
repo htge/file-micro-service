@@ -5,11 +5,9 @@ import org.apache.shiro.session.Session;
 import org.apache.shiro.session.UnknownSessionException;
 import org.apache.shiro.session.mgt.eis.EnterpriseCacheSessionDAO;
 import org.jboss.logging.Logger;
-import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
 
-@Component
 public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     private SessionDBImpl sessionDB = null;
 
@@ -28,17 +26,23 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
 
     @Override
     public Session readSession(Serializable sessionId) throws UnknownSessionException {
-        logger.info("readSession: "+sessionId.toString());
-        Session session = sessionDB.get(sessionId);
-        if (session != null) {
-            Cache<Serializable, Session> cache = getActiveSessionsCache();
-            if (cache == null) {
-                cache = createActiveSessionsCache();
-                setActiveSessionsCache(cache);
+        //shiro内置缓存优先，没有的情况再找redis
+        Session session = super.getCachedSession(sessionId);
+        if (session == null) {
+            logger.info("readSession: "+sessionId.toString());
+            session = sessionDB.get(sessionId);
+            if (session != null) {
+                //从redis找到后，放到shiro内置缓存中去，否则让shiro内置的方法创建后，自动调用doUpdate方法与redis同步
+                Cache<Serializable, Session> cache = getActiveSessionsCache();
+                if (cache == null) {
+                    cache = createActiveSessionsCache();
+                    setActiveSessionsCache(cache);
+                }
+                cache.put(sessionId, session);
             }
-            cache.put(sessionId, session);
+            return super.readSession(sessionId);
         }
-        return super.readSession(sessionId);
+        return session;
     }
 
     @Override

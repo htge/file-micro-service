@@ -7,12 +7,10 @@ import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
-import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
 import java.util.Set;
 
-@Component
 public class UserRealm extends AuthorizingRealm {
     private UserinfoDao userinfoDao = null;
 
@@ -37,8 +35,8 @@ public class UserRealm extends AuthorizingRealm {
         if (userinfo == null) {
             //伪造一个用户信息，防止注册过的用户名被猜测到
             userinfo = new Userinfo();
-            userinfo.setUsername("");
-            userinfo.setUserdata("");
+            userinfo.setUsername("invalid username");
+            userinfo.setUserdata("invalid userdata");
         }
         return new SimpleAuthenticationInfo(userinfo.getUsername(), userinfo.getUserdata(),
                 null, getName());

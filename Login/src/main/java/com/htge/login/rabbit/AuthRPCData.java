@@ -1,30 +1,32 @@
 package com.htge.login.rabbit;
 
 import com.htge.login.config.LoginProperties;
+import com.htge.login.model.RedisSessionDao;
 import com.htge.login.model.SessionDBImpl;
 import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
 import com.htge.login.util.LoginManager;
 import net.sf.json.JSONObject;
-import org.apache.shiro.session.Session;
+import org.apache.shiro.session.mgt.SimpleSession;
 import org.jboss.logging.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import javax.validation.constraints.NotNull;
 import java.io.Serializable;
+import java.util.Date;
 
-@Component
 public class AuthRPCData implements RPCData {
-    private SessionDBImpl sessionDB;
-    private UserinfoDao userinfoDao;
     private final Logger logger = Logger.getLogger(AuthRPCData.class);
 
-    @Autowired
-    LoginProperties config;
+    private LoginProperties properties;
+    private RedisSessionDao sessionDao;
+    private UserinfoDao userinfoDao;
 
-    public void setSessionDB(SessionDBImpl sessionDB) {
-        this.sessionDB = sessionDB;
+    public void setProperties(LoginProperties properties) {
+        this.properties = properties;
+    }
+
+    public void setSessionDao(RedisSessionDao sessionDao) {
+        this.sessionDao = sessionDao;
     }
 
     public void setUserinfoDao(UserinfoDao userinfoDao) {
@@ -57,27 +59,38 @@ public class AuthRPCData implements RPCData {
             return ret;
         }
         Serializable sessionId = jsonObject.getString("sessionId");
-        Session session = sessionDB.get(sessionId);
         String username = null;
         int role = 0;
-        if (session != null) {
-            username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
-            if (username != null) {
-                Userinfo userinfo = userinfoDao.findUser(username);
-                if (userinfo != null) {
-                    role = userinfo.getRole();
+        Boolean isValidSession;
+        try {
+            SimpleSession session = (SimpleSession) sessionDao.readSession(sessionId);
+            if (session != null) {
+                //验证后，设置访问时间自动续期
+                session.validate();
+                session.setLastAccessTime(new Date());
+                sessionDao.update(session);
+
+                username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+                if (username != null) {
+                    Userinfo userinfo = userinfoDao.findUser(username);
+                    if (userinfo != null) {
+                        role = userinfo.getRole();
+                    }
                 }
             }
+            isValidSession = (username != null);
+        } catch (Exception e) {
+            //验证超时或者其他情况
+            isValidSession = false;
         }
         ret.put("role", role);
-        Boolean isValidSession = (username != null);
         ret.put("isValidSession", isValidSession);
         //通过域名访问的话，要把具体域名和端口拿出来
-        ret.put("rootPath", config.getRootPath());
-        ret.put("logoutPath", config.getRootPath()+"logout");
+        ret.put("rootPath", properties.getRootPath());
+        ret.put("logoutPath", properties.getRootPath()+"logout");
         //管理员，添加设置路径
         if (role == LoginManager.LoginRole.Admin) {
-            ret.put("settingPath", config.getRootPath()+"setting");
+            ret.put("settingPath", properties.getRootPath()+"setting");
         }
         return ret;
     }

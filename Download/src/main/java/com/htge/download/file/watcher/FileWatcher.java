@@ -1,5 +1,6 @@
 package com.htge.download.file.watcher;
 
+import com.htge.download.config.FileProperties;
 import com.htge.download.file.cache.ETagCache;
 import com.htge.download.file.util.FileHash;
 import com.sun.nio.file.SensitivityWatchEventModifier;
@@ -11,7 +12,6 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.HashMap;
 
-@Component("FileWatcher")
 public class FileWatcher {
     private WatchService watchService = null;
     private final HashMap<WatchKey, Path> watchMap = new HashMap<>();
@@ -21,6 +21,13 @@ public class FileWatcher {
 
     public void seteTagCache(ETagCache eTagCache) {
         this.eTagCache = eTagCache;
+    }
+
+    public void setProperties(FileProperties properties) {
+        if (properties.isWatcher()) {
+            File localFile = new File(properties.getLocalDir());
+            watchPathTree(localFile.toPath());
+        }
     }
 
     private void watchPath(Path path) throws IOException {

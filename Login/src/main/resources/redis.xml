@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <context:annotation-config/>
+
+    <!-- 加载配置文件 -->
+    <context:property-placeholder location="classpath:redis.properties" ignore-unresolvable="true" />
+
+    <bean id="redisUserItemCache" class="com.htge.login.model.RedisUserItemCache">
+        <property name="loginProperties" ref="properties"/>
+        <property name="factoryManager" ref="factoryManager"/>
+    </bean>
+
+
+    <bean id="redisSessionDao" class="com.htge.login.model.RedisSessionDao">
+        <property name="sessionDB">
+            <bean class="com.htge.login.model.RedisSessionDB">
+                <property name="factoryManager" ref="factoryManager"/>
+            </bean>
+        </property>
+    </bean>
+
+    <bean id="factoryManager" class="com.htge.login.model.RedisFactoryManager">
+        <property name="jedisConnectionFactory">
+            <bean class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+                <property name="hostName" value="192.168.51.20"/>
+                <property name="port" value="6379"/>
+                <property name="password" value="${jedis.password}"/>
+                <property name="poolConfig">
+                    <bean class="redis.clients.jedis.JedisPoolConfig">
+                        <property name="maxTotal" value="${jedis.maxTotal}"/>
+                        <property name="minIdle" value="${jedis.minIdle}"/>
+                        <property name="maxWaitMillis" value="${jedis.maxWaitMillis}"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+</beans>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <context:annotation-config/>
+
+    <bean id="webSessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
+        <property name="globalSessionTimeout" value="300000"/><!--未登录Session超时5分钟，单位ms-->
+        <property name="deleteInvalidSessions" value="true"/>
+        <property name="sessionValidationSchedulerEnabled" value="true"/>
+        <property name="sessionValidationScheduler">
+            <bean class="org.apache.shiro.session.mgt.quartz.QuartzSessionValidationScheduler">
+                <property name="sessionValidationInterval" value="300000"/><!--5分钟，单位ms-->
+                <property name="sessionManager" ref="webSessionManager"/>
+            </bean>
+        </property>
+        <property name="sessionIdCookieEnabled" value="true"/>
+        <property name="sessionIdCookie">
+            <bean class="org.apache.shiro.web.servlet.SimpleCookie">
+                <property name="name" value="${server.session.cookie.name}"/>
+                <property name="httpOnly" value="true"/>
+            </bean>
+        </property>
+        <property name="sessionDAO" ref="redisSessionDao"/>
+    </bean>
+
+    <bean id="webSecurityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="sessionManager" ref="webSessionManager"/>
+        <property name="realm">
+            <bean class="com.htge.login.shrio.UserRealm">
+                <property name="userinfoDao" ref="userinfoDao"/>
+                <property name="credentialsMatcher">
+                    <bean class="com.htge.login.shrio.CredentialsMatcher">
+                        <property name="cacheManager">
+                            <bean class="org.apache.shiro.cache.ehcache.EhCacheManager">
+                                <property name="cacheManagerConfigFile" value="classpath:shiro-ehcache.xml"/>
+                            </bean>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+
+    <!--通过XML执行SecurityUtils.setSecurityManager()-->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="staticMethod" value="org.apache.shiro.SecurityUtils.setSecurityManager"/>
+        <property name="arguments" ref="webSecurityManager"/>
+    </bean>
+
+    <bean class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="webSecurityManager"/>
+        <property name="loginUrl" value="/"/>
+        <property name="unauthorizedUrl" value="/"/>
+        <property name="filterChainDefinitions" value="/** = anon"/>
+    </bean>
+
+    <bean class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+</beans>

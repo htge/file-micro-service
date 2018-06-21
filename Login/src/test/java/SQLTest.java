@@ -22,6 +22,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.StopWatch;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -80,6 +81,36 @@ public class SQLTest {
         }
     }
 
+//    @Test
+//    public void insertCast() {
+//        //测试插入N条记录
+//        final int count = 1000000, limit = 10000;
+//        int i;
+//        if (dao.getUserItemCache() == null) {
+//            dao.setUserItemCache(cache);
+//        }
+//        List<Userinfo> list = new ArrayList<>();
+//        for (i=0; i<count; i++) {
+//            Userinfo u = new Userinfo();
+//            u.setUsername("testu"+i);
+//            u.setUserdata("a");
+//            u.setRole(0);
+//            list.add(u);
+//            if (i % limit == limit-1 || i == count-1) {
+//                counter.assertTrue(dao.createAll(list));
+//                list.clear();
+//                System.out.println((i+1)+" requests completed");
+//            }
+//        }
+//        dao.waitAction();
+//    }
+//
+    @Test
+    public void buildCacheTest() {
+        cache.clear();
+        dao.buildUserCache();
+    }
+
     @Test
     public void userItemDaoInAnyCast() throws Exception {
         //初始化配置
@@ -94,6 +125,7 @@ public class SQLTest {
 
         //有一种情况要覆盖
         Serializable serializableUser = generator.generateId(null);
+        Serializable serializableUser2 = generator.generateId(null);
         Serializable serializableUserData = generator.generateId(null);
 
         //插入两条记录，测试getAllUsers()重建缓存的情况
@@ -103,7 +135,7 @@ public class SQLTest {
         u1.setRole((int)(Math.random()*100));
 
         Userinfo u2 = new Userinfo();
-        u2.setUsername(serializableUser.toString());
+        u2.setUsername(serializableUser2.toString());
         u2.setUserdata(serializableUserData.toString());
         u2.setRole((int)(Math.random()*100));
 
@@ -112,14 +144,20 @@ public class SQLTest {
         dao.waitAction();//等数据库插入后
         dao.getUserItemCache().clear();//清理缓存
 
-        Assert.assertTrue(dao.getUserItemCache().getAllUsers() == null); //缓存被清空
-        Assert.assertTrue(dao.getAllUser() != null); //重建缓存
-        Assert.assertTrue(dao.getUserItemCache().getAllUsers() != null); //缓存存在
-        Assert.assertTrue(dao.getUserItemCache().getAllUsers().size() >= 2); //至少有两条数据
-        Assert.assertTrue(dao.getUserItemCache().findUser(u1.getUsername()) != null);
-        Assert.assertTrue(dao.getUserItemCache().findUser(u2.getUsername()) != null);
+        Assert.assertTrue(dao.getUserItemCache().size() == 0); //缓存被清空
+        dao.getUsers(0, 100);
+        Collection<Userinfo> userinfos = dao.getUserItemCache().getUsers(0, 2);
+
+        //缓存条件
+        Assert.assertTrue(userinfos != null);
+        Assert.assertTrue(userinfos.size() == 2);
+        Assert.assertTrue(dao.getUserItemCache().size() >= 2);
+
+        //通过数据库查询后，缓存可以正常工作的条件
         Assert.assertTrue(dao.findUser(u1.getUsername()) != null);
         Assert.assertTrue(dao.findUser(u2.getUsername()) != null);
+        Assert.assertTrue(dao.getUserItemCache().findUser(u1.getUsername()) != null);
+        Assert.assertTrue(dao.getUserItemCache().findUser(u2.getUsername()) != null);
 
         //清理临时数据
         dao.delete(u1.getUsername());
@@ -131,9 +169,9 @@ public class SQLTest {
         StopWatch stopWatch2 = new StopWatch();
         stopWatch2.start();
 
-        Collection<Userinfo> oldItems = dao.getAllUser();
+        Collection<Userinfo> oldItems = dao.getUsers(0, 2);
 
-        int total = 5000;
+        int total = 2500;
         testSQL(total, executor, dao, generator);
 
         long completed;
@@ -143,7 +181,7 @@ public class SQLTest {
             Thread.sleep(500);
         } while (completed != total);
 
-        Assert.assertTrue(dao.getAllUser().size() == oldItems.size());
+        Assert.assertTrue(dao.getUsers(0, 2).size() == oldItems.size());
 
         //最后一条记录要能执行完
         stopWatch.stop();
@@ -173,7 +211,7 @@ public class SQLTest {
         StopWatch stopWatch2 = new StopWatch();
         stopWatch2.start();
 
-        Collection<Userinfo> oldItems = dao.getAllUser();
+        Collection<Userinfo> oldItems = dao.getUsers(0, 2);
 
         int total = 1000;
         testSQL(total, executor, dao, generator);
@@ -185,7 +223,7 @@ public class SQLTest {
             Thread.sleep(500);
         } while (completed != total);
 
-        Assert.assertTrue(dao.getAllUser().size() == oldItems.size());
+        Assert.assertTrue(dao.getUsers(0, 2).size() == oldItems.size());
 
         //最后一条记录要能执行完
         stopWatch.stop();

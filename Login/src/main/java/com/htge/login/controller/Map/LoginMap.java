@@ -17,23 +17,25 @@ import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
-@Component
 public class LoginMap {
-	@Resource(name = "LoginProperties")
-    private LoginProperties config;
+    private LoginProperties properties;
+
+	public void setProperties(LoginProperties properties) {
+		this.properties = properties;
+	}
 
 	static {
 		Crypto.getCachedKeyPair();
 	}
 
-	public Object loginPage(HttpServletRequest request) {
+	public Object loginPage(HttpServletRequest request, HttpServletResponse response) {
+		String sessionId = request.getRequestedSessionId();
 		Subject subject = SecurityUtils.getSubject();
 		if (!LoginManager.isAuthorized(subject)) {
 			String requestURI = request.getRequestURI();
@@ -45,6 +47,10 @@ public class LoginMap {
 				Session session = subject.getSession();
 				if (session == null) {
 					return new ResponseEntity<>("{}", HttpStatus.INTERNAL_SERVER_ERROR);
+				}
+				//sessionid始终变化的情况
+				if (sessionId == null || !session.getId().equals(sessionId)) {
+					return LoginManager.redirectToRoot(session, response);
 				}
 				KeyPair keyPair = (KeyPair) session.getAttribute("keypair");
 				if (keyPair == null) {
@@ -61,10 +67,10 @@ public class LoginMap {
 				e.printStackTrace();
 			}
 		}
-		return new ModelAndView("redirect:"+config.getNextRoot());
+		return new ModelAndView("redirect:"+properties.getNextRoot());
 	}
 
-	public ResponseEntity login(@ModelAttribute UserData userData)
+	public ResponseEntity login(HttpServletRequest request, @ModelAttribute UserData userData)
 			throws IOException {
 		Subject subject = SecurityUtils.getSubject();
 		Session session = subject.getSession();
@@ -79,12 +85,13 @@ public class LoginMap {
 					return new ResponseEntity<>("{}", HttpStatus.BAD_REQUEST);
 				}
 				//加密用户信息
-				UsernamePasswordToken token = new UsernamePasswordToken(userData.getUsername(), userData.getPassword());
+				UsernamePasswordToken token = new UsernamePasswordToken(userData.getUsername(), userData.getPassword(),
+						LoginManager.getIpAddress(request));
 				try {
 					subject.login(token);
 
 					//登录成功后，执行以下操作
-					LoginManager.updateSessionInfo(subject.getSession(), username);
+					LoginManager.updateSessionInfo(session, username, properties.getSessionTimeout());
 					session.removeAttribute("keypair");//清理之前的旧信息
 
 					String lastUri = (String) session.getAttribute("url");

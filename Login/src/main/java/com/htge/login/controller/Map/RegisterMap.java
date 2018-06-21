@@ -19,18 +19,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
-@Component
 public class RegisterMap {
-	@Resource(name = "UserinfoDao")
 	private UserinfoDao userinfoDao;
 
-	public Object registerPage(HttpServletRequest request) {
+	public void setUserinfoDao(UserinfoDao userinfoDao) {
+		this.userinfoDao = userinfoDao;
+	}
+
+	public Object registerPage(HttpServletRequest request, HttpServletResponse response) {
 		Subject subject = SecurityUtils.getSubject();
+		Session session = subject.getSession();
 		if (LoginManager.getUserRule(subject, userinfoDao) == LoginManager.LoginRole.Admin) {
-			Session session = subject.getSession();
 			if (session == null) {
 				return new ResponseEntity<>("{}", HttpStatus.INTERNAL_SERVER_ERROR);
 			}
@@ -46,7 +48,7 @@ public class RegisterMap {
 				return view;
 			}
 		}
-		return new ModelAndView("redirect:/auth/");
+		return LoginManager.redirectToRoot(session, response);
 	}
 
 	public ResponseEntity register(@ModelAttribute UserData userData) {

@@ -16,18 +16,18 @@ import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 
-@Component
 public class ChangeMap {
-    @Resource(name = "UserinfoDao")
     private UserinfoDao userinfoDao;
+
+    public void setUserinfoDao(UserinfoDao userinfoDao) {
+        this.userinfoDao = userinfoDao;
+    }
 
     public Object changePage(HttpServletRequest request) {
         Subject subject = SecurityUtils.getSubject();
@@ -65,7 +65,7 @@ public class ChangeMap {
                     jsonObject.put("message", "密码长度必须在8～32之间");
                     return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
                 }
-                if (validation == null || !newPassword.equals(validation)) {
+                if (!newPassword.equals(validation)) {
                     JSONObject jsonObject = new JSONObject();
                     jsonObject.put("message", "密码输入不匹配");
                     return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);

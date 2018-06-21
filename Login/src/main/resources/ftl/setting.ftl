@@ -4,8 +4,8 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <meta name="format-detection" content="telephone=no" />
-    <link rel="stylesheet" type="text/css" href="${Path}/css/button.css">
-    <script src="${Path}/js/jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="${Path}/auth/css/button.css">
+    <script src="${Path}/auth/js/jquery-3.3.1.min.js"></script>
     <title>用户信息管理</title>
 </head>
 <style>
@@ -24,9 +24,11 @@
         <td style="width:120px;text-align: center">操作</td>
     </tr>
     <tr>
-        <td style="text-align: left">${username}</td>
-        <td>${role}</td>
-        <td></td>
+        <#if currentPage==0>
+            <td style="text-align: left">${username}</td>
+            <td>${role}</td>
+            <td></td>
+        </#if>
     </tr>
 	<#list usersrcs as usersrc>
 	<tr>
@@ -41,6 +43,19 @@
     </tbody>
 </table><br>
 <div style="width:100%; max-width:380px; margin-left:auto; margin-right:auto; text-align:center;">
+    <#if pageIndexes??>
+    <p>
+        <button class="button button-plain button-square button-small" style="width:37px;" onclick="location.href='?p=${(currentPage-1)?c}'" <#if currentPage lte 0>disabled</#if>>上页</button>
+        <#list pageIndexes as pageIndex>
+        <#if pageIndex==currentPage>
+            <button class="button button-primary button-square button-small" style="width:35px" onclick="location.href='?p=${pageIndex?c}'">${(pageIndex+1)?c}</button>
+        <#else>
+           <button class="button button-plain button-square button-small" style="width:35px" onclick="location.href='?p=${pageIndex?c}'">${(pageIndex+1)?c}</button>
+        </#if>
+        </#list>
+        <button class="button button-plain button-square button-small" style="width:37px;" onclick="location.href='?p=${(currentPage+1)?c}'" <#if (currentPage+1) gte maxPage>disabled</#if>>下页</button>
+    </p>
+    </#if>
 	<#if role=='管理员'>
 		<p>
             <button class="button button-primary button-square button-small" style="width:100px;" onclick="location.href='change'">修改密码</button>

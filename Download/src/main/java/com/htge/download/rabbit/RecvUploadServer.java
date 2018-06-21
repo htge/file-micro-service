@@ -13,8 +13,14 @@ public class RecvUploadServer {
     private static Logger logger = Logger.getLogger(RecvUploadServer.class);
     private static final ReentrantLock createLock = new ReentrantLock();
     private static boolean isCreated = false;
+    private CachingConnectionFactory factory = null;
 
-    public static void createInstance(CachingConnectionFactory factory) {
+    public void setFactory(CachingConnectionFactory factory) {
+        this.factory = factory;
+        createInstance();
+    }
+
+    private void createInstance() {
         //不允许多实例
         if (doTrick()) {
             return;

@@ -1,5 +1,6 @@
 package com.htge.download.rabbit.login;
 
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 
 public class LoginData {
@@ -16,7 +17,7 @@ public class LoginData {
         public static final int Admin = 1;
     }
 
-    LoginData(String data) {
+    public LoginData(String data) throws JSONException {
         JSONObject jsonObject = JSONObject.fromObject(data);
         if (jsonObject.containsKey("error")) {
             errorMessage = jsonObject.getString("error");

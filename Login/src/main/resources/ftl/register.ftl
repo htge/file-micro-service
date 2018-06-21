@@ -4,14 +4,14 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
         <meta name="format-detection" content="telephone=no" />
-        <link rel="stylesheet" type="text/css" href="${Path}/css/button.css">
-        <script src="${Path}/js/jquery-3.3.1.min.js"></script>
-        <script src="${Path}/js/jsbn.js"></script>
-        <script src="${Path}/js/prng4.js"></script>
-        <script src="${Path}/js/rng.js"></script>
-        <script src="${Path}/js/rsa.js"></script>
-        <script src="${Path}/js/aes.js"></script>
-        <script src="${Path}/js/common.js"></script>
+        <link rel="stylesheet" type="text/css" href="${Path}/auth/css/button.css">
+        <script src="${Path}/auth/js/jquery-3.3.1.min.js"></script>
+        <script src="${Path}/auth/js/jsbn.js"></script>
+        <script src="${Path}/auth/js/prng4.js"></script>
+        <script src="${Path}/auth/js/rng.js"></script>
+        <script src="${Path}/auth/js/rsa.js"></script>
+        <script src="${Path}/auth/js/aes.js"></script>
+        <script src="${Path}/auth/js/common.js"></script>
         <title>注册新用户</title>
     </head>
     <style>
@@ -52,10 +52,10 @@
                     if (json.message) {
                         $("#errorMessage").html(htmlEncode(json.message));
                     } else {
-                        $("#errorMessage").html("未知错误");
+                        location.reload(true);
                     }
                 } catch (e) {
-                    $("#errorMessage").html("未知错误");
+                    location.reload(true);
                 }
             }).done(function(msg) {
                 alert("操作成功完成");

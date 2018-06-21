@@ -1,8 +1,8 @@
 package com.htge.download.file.cache;
 
+import com.htge.download.config.FileProperties;
 import com.htge.download.file.util.FileHash;
 import org.jboss.logging.Logger;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,10 +13,16 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component("FileETagCache")
 public class FileETagCache implements ETagCache {
     private final ConcurrentHashMap<Path, ETagInfo> hashMap = new ConcurrentHashMap<>();
     private final Logger logger = Logger.getLogger(FileETagCache.class);
+
+    public void setProperties(FileProperties properties) {
+        if (!properties.isWatcher()) {
+            File localFile = new File(properties.getLocalDir());
+            generateTree(localFile.toPath());
+        }
+    }
 
     public void generateTree(Path path) {
         try {

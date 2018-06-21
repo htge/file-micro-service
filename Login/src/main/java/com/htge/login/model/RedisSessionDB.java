@@ -4,24 +4,17 @@ import com.htge.login.util.LoginManager;
 import org.apache.shiro.session.Session;
 import org.jboss.logging.Logger;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
 
 import java.io.*;
 
-@Component
 public class RedisSessionDB implements SessionDBImpl {
     private Logger logger = Logger.getLogger(RedisSessionDB.class);
     private RedisTemplate<String, Object> template = null;
     private RedisTemplate<String, Object> userTemplate = null;
 
-    public void setTemplate(RedisTemplate<String, Object> template) {
-        template.setEnableTransactionSupport(true);
-        this.template = template;
-    }
-
-    public void setUserTemplate(RedisTemplate<String, Object> userTemplate) {
-        template.setEnableTransactionSupport(true);
-        this.userTemplate = userTemplate;
+    public void setFactoryManager(RedisFactoryManager factoryManager) {
+        template = factoryManager.getTemplate(1);
+        userTemplate = factoryManager.getTemplate(2);
     }
 
     /* CRUD */
@@ -48,14 +41,14 @@ public class RedisSessionDB implements SessionDBImpl {
     /* 如果已经在其他地方登录，这里做剔出逻辑 */
     private void updateUser(Session newSession, String user) {
         Serializable oldId = (Serializable) userTemplate.opsForValue().get(user);
-        if (!oldId.equals(newSession.getId())) {
+        if (oldId != null && !oldId.equals(newSession.getId())) {
             Session session = get(oldId);
             //从缓存查到以后，旧的Session立即失效
             if (session != null && session.getAttribute(LoginManager.SESSION_USER_KEY) != null) {
                 session.removeAttribute(LoginManager.SESSION_USER_KEY);
                 session.setTimeout(0);
                 update(session);
-                logger.info("remove SessionID:"+newSession.getId().toString());
+                logger.info("remove SessionID:" + newSession.getId().toString());
             }
         }
         logger.info("update SessionID:"+newSession.getId().toString());

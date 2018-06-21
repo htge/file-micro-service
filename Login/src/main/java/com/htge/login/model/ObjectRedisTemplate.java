@@ -5,9 +5,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-public class ObjectRedisTemplate extends RedisTemplate<String, Object> {
+class ObjectRedisTemplate extends RedisTemplate<String, Object> {
 
-    public ObjectRedisTemplate() {
+    private ObjectRedisTemplate() {
         RedisSerializer<String> stringSerializer = new StringRedisSerializer();
         this.setKeySerializer(stringSerializer);
         this.setValueSerializer(null);
@@ -15,7 +15,7 @@ public class ObjectRedisTemplate extends RedisTemplate<String, Object> {
         this.setHashValueSerializer(null);
     }
 
-    public ObjectRedisTemplate(RedisConnectionFactory connectionFactory) {
+    ObjectRedisTemplate(RedisConnectionFactory connectionFactory) {
         this();
         this.setConnectionFactory(connectionFactory);
         this.afterPropertiesSet();

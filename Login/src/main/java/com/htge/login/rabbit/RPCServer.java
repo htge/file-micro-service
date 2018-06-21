@@ -14,20 +14,30 @@ import java.io.IOException;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class RPCServer {
+    private final String RPC_QUEUE_NAME = "login_queue";
+    private final Logger logger = Logger.getLogger(RPCServer.class);
+    private final ReentrantLock createLock = new ReentrantLock();
+    private boolean isCreated = false;
+    private Connection connection = null;
 
-    private static final String RPC_QUEUE_NAME = "login_queue";
-    private static final Logger logger = Logger.getLogger(RPCServer.class);
-    private static final ReentrantLock createLock = new ReentrantLock();
-    private static boolean isCreated = false;
+    private CachingConnectionFactory factory;
+    private RPCData rpcData;
 
-    public static void createInstance(CachingConnectionFactory factory, RPCData rpcData) {
+    public void setFactory(CachingConnectionFactory factory) {
+        this.factory = factory;
+    }
+
+    public void setRpcData(RPCData rpcData) {
+        this.rpcData = rpcData;
+    }
+
+    public void startServer() {
         //不允许多实例
         if (doTrick()) {
             return;
         }
 
         Runnable task = () -> {
-            Connection connection = null;
             try {
                 connection = factory.createConnection();
                 final Channel channel = connection.createChannel(false);
@@ -77,13 +87,38 @@ public class RPCServer {
             }
         };
         new Thread(task).start();
+        new RPCThreadHook(() -> {
+            if (connection != null) {
+                connection.close();
+                connection = null;
+            }
+        });
     }
 
-    private static boolean doTrick() {
+    private boolean doTrick() {
         createLock.lock();
         boolean created = isCreated;
         isCreated = true;
         createLock.unlock();
         return created;
+    }
+
+    private interface RPCThreadListener {
+        void cleanup();
+    }
+
+    private class RPCThreadHook extends Thread {
+        private RPCThreadListener listener;
+
+        private RPCThreadHook(RPCThreadListener listerer) {
+            this.listener = listerer;
+            Runtime.getRuntime().addShutdownHook(this);
+        }
+
+        @Override
+        public void run() {
+            logger.info("clean RPC resource...");
+            listener.cleanup();
+        }
     }
 }

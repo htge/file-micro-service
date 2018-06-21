@@ -2,30 +2,28 @@ package com.htge.login.controller;
 
 import com.htge.login.controller.Map.LoginMap;
 import com.htge.login.model.UserData;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Controller
 @RequestMapping("/auth")
 public class LoginController {
-    @Autowired
-    LoginMap loginMap;
+    @Resource(name = "loginMap")
+    private LoginMap loginMap;
 
     @RequestMapping(value="/", method = RequestMethod.GET)
-    public Object loginPage(HttpServletRequest request) {
-        return loginMap.loginPage(request);
+    public Object loginPage(HttpServletRequest request, HttpServletResponse response) {
+        return loginMap.loginPage(request, response);
     }
 
     @ResponseBody
     @RequestMapping(value="/login", method = RequestMethod.POST)
-    public Object login(@ModelAttribute UserData userData) throws IOException {
-        return loginMap.login(userData);
+    public Object login(HttpServletRequest request, @ModelAttribute UserData userData) throws IOException {
+        return loginMap.login(request, userData);
     }
 }

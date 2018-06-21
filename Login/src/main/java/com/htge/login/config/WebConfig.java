@@ -11,9 +11,9 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         //映射静态资源文件
-        registry.addResourceHandler("/css/**")
+        registry.addResourceHandler("/auth/css/**")
                 .addResourceLocations("classpath:/web/css/");
-        registry.addResourceHandler("/js/**")
+        registry.addResourceHandler("/auth/js/**")
                 .addResourceLocations("classpath:/web/js/");
     }
 }

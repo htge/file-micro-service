@@ -3,7 +3,6 @@ package com.htge.download.file;
 import java.io.*;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -12,17 +11,14 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.htge.download.config.FileProperties;
 import com.htge.download.file.cache.FileETagCache;
-import com.htge.download.file.util.FileDateComparator;
 import com.htge.download.file.util.FileHash;
 import com.htge.download.rabbit.login.LoginClient;
 import com.htge.download.rabbit.login.LoginData;
 import org.jboss.logging.Logger;
 import org.springframework.http.*;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
-@Component("FileMap")
 public class FileMap {
 	private LoginClient loginClient = null;
 	private FileProperties properties;
@@ -110,17 +106,20 @@ public class FileMap {
 			//getRequestedSessionId()要能拿到数据，需要在application.properties配置server.session.cookie.name
 			String sessionId = request.getRequestedSessionId();
 			if (sessionId != null) {
+//			    loginData = new LoginData("{\"role\":1,\"isValidSession\":true,\"rootPath\":\"http://192.168.51.20/auth/\",\"logoutPath\":\"http://192.168.51.20/auth/logout\",\"settingPath\":\"http://192.168.51.20/auth/setting\"}");
 				loginData = loginClient.getLoginInfo(sessionId);
 			}
 			if (loginData == null) {
 				return new ModelAndView("notfound");
 			}
 			if (loginData.getErrorMessage() != null) {
-			    logger.error("errorMessage = "+loginData.getErrorMessage());
-                return new ModelAndView("redirect:"+loginData.getRootPath());
+                logger.error("errorMessage = "+loginData.getErrorMessage());
+                response.sendRedirect(loginData.getRootPath());
+                return null;
             }
             if (!loginData.isValidSession()) {
-                return new ModelAndView("redirect:"+loginData.getRootPath());
+                response.sendRedirect(loginData.getRootPath());
+                return null;
             }
 		}
 		//以下条件，必须要先检查完登录再确定
@@ -138,8 +137,74 @@ public class FileMap {
 				return new ModelAndView("notfound");
 			}
 		}
-		return downloadWithRange(fileRange, file, eTag, request, response);
+		if (fileRange != null) {
+			return downloadWithRange(fileRange, file, eTag, request);
+		}
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+		headers.set("Accept-Ranges", "bytes");
+		return new ResponseEntity<byte[]>(headers, HttpStatus.BAD_REQUEST);
 	}
+
+	private class FileInfo {
+	    boolean isFile;
+        long modified;
+        String size;
+        String name;
+        String encodedName;
+        String lastModified;
+
+        private FileInfo(File file) {
+            try {
+                isFile = file.isFile();
+                modified = file.lastModified();
+                lastModified = getLastModifiedStr(modified);
+                if (isFile) {
+                    name = file.getName();
+                    size = getFileSizeStr(file.length());
+                } else {
+                    name = file.getName() + "/";
+                    size = "";
+                }
+                encodedName = URLEncoder.encode(name, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private long getModified() {
+            return modified;
+        }
+
+        private Map<String, Object> mapValue() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("isfile", isFile);
+            map.put("name", name);
+            map.put("encodedName", encodedName);
+            map.put("size", size);
+            map.put("lastmodified", lastModified);
+            return map;
+        }
+
+        private String getFileSizeStr(double size) {
+            int nUnit = 0;
+            String unit[] = {"字节", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
+            while (size > 1024) {
+                size /= 1024;
+                nUnit++;
+            }
+            if (nUnit > unit.length) {
+                return "Out of range";
+            }
+            return String.format("%.2f %s", size, unit[nUnit]);
+        }
+
+        private String getLastModifiedStr(long lastModified) {
+            Date dt = new Date(lastModified);
+            SimpleDateFormat sm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            return sm.format(dt);
+        }
+    }
 
 	private ModelAndView list(String contextPath, String basePath, LoginData loginData) {
 		File file = new File(basePath);
@@ -154,37 +219,35 @@ public class FileMap {
 				parentPathName = components[components.length-2];
 			}
 		}
-		File[] files = file.listFiles();
-		List<HashMap<String, Object>> dataSources = new ArrayList<>();
+		FilenameFilter filter = (File dir, String name) -> { //排除.DS_Store这类文件
+		    return name.indexOf(".") != 0;
+        };
+		File[] files = file.listFiles(filter);
+		List<Map<String, Object>> dataSources = new ArrayList<>();
 		if (files != null) {
-			List<File> list = Arrays.asList(files);
-			list.sort(new FileDateComparator()); //按照日期排序
-			logger.info("basePath:" + basePath + "\tlist.size:" + list.size());
-			for (File f : list) {
-				logger.info("file name:" + f.getName());
-				String filename = f.getName();
+		    List<FileInfo> modified = new ArrayList<>();
+            logger.info("basePath:" + basePath + "\tlist.size:" + files.length);
+		    for (File f : files) {
+                modified.add(new FileInfo(f));
+            }
+            modified.sort((FileInfo o1, FileInfo o2) -> {
+                long ret = o1.getModified()-o2.getModified();
+                if (ret < 0) {
+                    return 1;
+                }
+                if (ret > 0) {
+                    return -1;
+                }
+                return 0;
+            });
+			for (FileInfo f : modified) {
+//				logger.info("file name:" + f.getFilename());
 
-				if (f.isFile() && filename.indexOf(".") != 0 || f.isDirectory()) { //排除.DS_Store这类文件
-					try {
-						String encodedName = URLEncoder.encode(filename, "UTF-8");
-
-						HashMap<String, Object> map = new HashMap<>();
-						map.put("isfile", f.isFile());
-						if (f.isFile()) {
-							map.put("name", filename);
-							map.put("encodedName", encodedName);
-							map.put("size", getFileSizeStr(f));
-						} else {
-							map.put("name", filename + "/");
-							map.put("encodedName", encodedName + "/");
-							map.put("size", "");
-						}
-						map.put("lastmodified", getLastModifiedStrFromFile(f));
-						dataSources.add(map);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
+                try {
+                    dataSources.add(f.mapValue());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 			}
 		}
 
@@ -209,7 +272,7 @@ public class FileMap {
 		return result;
 	}
 
-	private ResponseEntity downloadWithRange(FileRange fileRange, File file, String eTag, HttpServletRequest request, HttpServletResponse response) {
+	private ResponseEntity downloadWithRange(FileRange fileRange, File file, String eTag, HttpServletRequest request) {
 		long start = fileRange.getStart();
 		long size = fileRange.getEnd() - start + 1;
 		if (size > 0) {
@@ -235,36 +298,6 @@ public class FileMap {
 		headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 		headers.set("Accept-Ranges", "bytes");
 		return new ResponseEntity<byte[]>(headers, HttpStatus.BAD_REQUEST);
-	}
-
-	private String getFileSizeStr(File file) {
-		double bytes = file.length();
-		int nUnit = 0;
-		String unit[] = {"字节", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
-		while (bytes > 1024) {
-			bytes /= 1024.0;
-			nUnit++;
-		}
-		if (nUnit > unit.length) {
-			return "Out of range";
-		}
-		String str2 = unit[nUnit];
-		return String.format("%.2f", bytes) + " " + str2;
-	}
-
-	private String getLastModifiedStrFromFile(File file) {
-		long lastModified = file.lastModified();
-		Date dt = new Date(lastModified);
-		SimpleDateFormat sm = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		return sm.format(dt);
-	}
-
-	private String getResponseHeaderLastModifiedStrFromFile(File file) {
-		long lastModified = file.lastModified();
-		Date date = new Date(lastModified);
-		DateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss", Locale.ENGLISH);
-		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-		return dateFormat.format(date)+" GMT";
 	}
 
 	private FileRange generateFileRange(String range, File file) {

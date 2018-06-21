@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <context:annotation-config/>
+
+    <bean id="properties" class="com.htge.download.config.FileProperties"/>
+
+    <bean id="fileMap" class="com.htge.download.file.FileMap">
+        <property name="eTagCache" ref="etagCache"/>
+        <property name="properties" ref="properties"/>
+        <property name="loginClient">
+            <bean class="com.htge.download.rabbit.login.LoginClient">
+                <property name="rpcClient">
+                    <bean class="com.htge.download.rabbit.RPCClient">
+                        <property name="factory" ref="rabbitConnectionFactory"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+
+    <bean class="com.htge.download.rabbit.RecvUploadServer">
+        <property name="factory" ref="rabbitConnectionFactory"/>
+    </bean>
+
+    <bean class="com.htge.download.file.watcher.FileWatcher">
+        <property name="eTagCache" ref="etagCache"/>
+        <property name="properties" ref="properties"/>
+    </bean>
+
+    <bean id="etagCache" class="com.htge.download.file.cache.FileETagCache">
+        <property name="properties" ref="properties"/>
+    </bean>
+</beans>

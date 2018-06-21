@@ -1,0 +1,14 @@
+<ehcache name="shirocache">
+    <!--diskStore：缓存数据持久化的目录 地址  -->
+    <diskStore path="java.io.tmpdir" />
+    <defaultCache name="passwordRetryCache"
+            maxEntriesLocalHeap="2000"
+            eternal="false"
+            timeToIdleSeconds="1800"
+            timeToLiveSeconds="1800"
+            overflowToDisk="false"
+            diskPersistent="false"
+            statistics="true"
+            memoryStoreEvictionPolicy="LRU">
+    </defaultCache>
+</ehcache>

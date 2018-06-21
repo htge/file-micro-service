@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <context:annotation-config/>
+
+    <!-- 启动RPC服务 -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="targetObject">
+            <bean class="com.htge.login.rabbit.RPCServer">
+                <property name="factory" ref="rabbitConnectionFactory"/>
+                <property name="rpcData">
+                    <bean class="com.htge.login.rabbit.AuthRPCData">
+                        <property name="properties" ref="properties"/>
+                        <property name="userinfoDao" ref="userinfoDao"/>
+                        <property name="sessionDao" ref="redisSessionDao"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+        <property name="targetMethod" value="startServer"/>
+    </bean>
+</beans>

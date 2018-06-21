@@ -4,13 +4,13 @@ import com.htge.login.util.Crypto;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.ExcessiveAttemptsException;
+import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.authc.credential.HashedCredentialsMatcher;
 import org.apache.shiro.cache.Cache;
-import org.springframework.stereotype.Component;
+import org.apache.shiro.cache.ehcache.EhCacheManager;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Component
 public class CredentialsMatcher extends HashedCredentialsMatcher {
 
     private Cache<String, AtomicInteger> passwordRetryCache = null;
@@ -21,18 +21,22 @@ public class CredentialsMatcher extends HashedCredentialsMatcher {
         setStoredCredentialsHexEncoded(true);
     }
 
-    public void setPasswordRetryCache(Cache<String, AtomicInteger> passwordRetryCache) {
-        this.passwordRetryCache = passwordRetryCache;
+    public void setCacheManager(EhCacheManager cacheManager) {
+        passwordRetryCache = cacheManager.getCache("passwordRetryCache");
     }
 
     @Override
     public boolean doCredentialsMatch(AuthenticationToken token, AuthenticationInfo info) {
+        UsernamePasswordToken usernamePasswordToken = (UsernamePasswordToken) token;
+        String host = usernamePasswordToken.getHost();
         String username = (String)token.getPrincipal();
-        AtomicInteger retryCount = passwordRetryCache.get(username);
+        String retryKey = String.format("%s_%s", host, username);
+        AtomicInteger retryCount = passwordRetryCache.get(retryKey);
         if (retryCount == null) {
             retryCount = new AtomicInteger(0);
-            passwordRetryCache.put(username, retryCount);
+            passwordRetryCache.put(retryKey, retryCount);
         }
+        //同一个地址的某个用户输错密码次数过多，则不允许继续尝试
         if (retryCount.incrementAndGet() > 5) {
             throw new ExcessiveAttemptsException();
         }

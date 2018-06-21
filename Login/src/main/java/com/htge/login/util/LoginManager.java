@@ -5,6 +5,12 @@ import com.htge.login.model.Userinfo;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 import org.jboss.logging.Logger;
+import org.springframework.web.servlet.ModelAndView;
+
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 public class LoginManager {
 	public static final String SESSION_USER_KEY = "username";
@@ -28,12 +34,12 @@ public class LoginManager {
 		return LoginRole.Error;
 	}
 
-	public static void updateSessionInfo(Session session, String username) {
+	public static void updateSessionInfo(Session session, String username, int timeout) {
 		if (session == null || username == null) {
 			return;
 		}
 		if (session.getAttribute(SESSION_USER_KEY) == null) { //防止模拟post请求后导致注销
-			session.setTimeout(7200000); //登录后，设置为2小时过期
+			session.setTimeout(timeout); //登录后，设置为更长的过期时间
 			session.setAttribute(SESSION_USER_KEY, username);
 		}
 	}
@@ -58,5 +64,47 @@ public class LoginManager {
 			session.removeAttribute(SESSION_USER_KEY);
 		}
 		subject.logout();
+	}
+
+	public static ModelAndView redirectToRoot(Session session, HttpServletResponse response) {
+		Cookie cookie = new Cookie("JSESSID", session.getId().toString());
+		response.addCookie(cookie);
+		try {
+			response.sendRedirect("/auth/");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	/**
+	 * 获取用户真实IP地址，不使用request.getRemoteAddr();的原因是有可能用户使用了代理软件方式避免真实IP地址,
+	 *
+	 * 可是，如果通过了多级反向代理的话，X-Forwarded-For的值并不止一个，而是一串IP值，究竟哪个才是真正的用户端的真实IP呢？
+	 * 答案是取X-Forwarded-For中第一个非unknown的有效IP字符串。
+	 *
+	 * 如：X-Forwarded-For：192.168.1.110, 192.168.1.120, 192.168.1.130,
+	 * 192.168.1.100
+	 *
+	 * 用户真实IP为： 192.168.1.110
+	 */
+	public static String getIpAddress(HttpServletRequest request) {
+		String ip = request.getHeader("x-forwarded-for");
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("Proxy-Client-IP");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("WL-Proxy-Client-IP");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("HTTP_CLIENT_IP");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("HTTP_X_FORWARDED_FOR");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getRemoteAddr();
+		}
+		return ip;
 	}
 }

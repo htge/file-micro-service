@@ -2,9 +2,7 @@ package com.htge.download.config;
 
 import org.springframework.beans.InvalidPropertyException;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
-@Component("FileProperties")
 @ConfigurationProperties(prefix = "file")
 public class FileProperties {
     private String localDir = "/";

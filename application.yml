@@ -6,17 +6,6 @@ spring:
     password: 1234
   freemarker:
     template-loader-path: ["classpath:/ftl/"]
-  datasource:
-    name: public
-    username: user
-    password: Release@
-    url: jdbc:mysql://localhost:3306/public?useSSL=false&serverTimezone=Asia/Shanghai
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  redis:
-    host: localhost
-    port: 6379
-    timeout: 0
-    password: Release@
 security:
   user:
     name: admin
@@ -40,3 +29,4 @@ file:
   server-root: /dl/
   authorization: true
   watcher: false
+  

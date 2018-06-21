@@ -1,49 +1,47 @@
 package com.htge.login.model;
 
+import com.htge.login.config.LoginProperties;
 import com.htge.login.model.mapper.UserinfoMapper;
+import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
-import org.mybatis.spring.SqlSessionFactoryBean;
-import org.springframework.stereotype.Component;
+import org.jboss.logging.Logger;
+import org.springframework.util.StopWatch;
 
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-@Component("UserinfoDao")
 public class UserinfoDao {
-	private SqlSessionFactoryBean factoryBean = null;
-	private volatile UserItemCacheImpl userItemCache = null;
-	private volatile ActionThread actionThread = null;
+	private SqlSessionFactory sessionFactory = null;
+	private UserItemCacheImpl userItemCache = null;
+	private final ActionThread actionThread = new ActionThread();
+	private final Logger logger = Logger.getLogger(UserinfoDao.class);
 
-	public void setFactoryBean(SqlSessionFactoryBean factoryBean) {
-		this.factoryBean = factoryBean;
+	private LoginProperties loginProperties = null;
+
+	public void setSessionFactory(SqlSessionFactory sessionFactory) {
+		this.sessionFactory = sessionFactory;
 	}
 
-	public SqlSessionFactory getFactory() {
-		try {
-			return factoryBean.getObject();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return null;
+	public SqlSessionFactory getSessionFactory() {
+		return sessionFactory;
+	}
+
+	public void setLoginProperties(LoginProperties loginProperties) {
+		this.loginProperties = loginProperties;
+	}
+
+	public UserinfoDao() {
+		actionThread.start();
+		new ActionHookThread(actionThread);
 	}
 
 	public void setUserItemCache(UserItemCacheImpl userItemCache) {
 		this.userItemCache = userItemCache;
-		if (userItemCache != null) {
-			userItemCache.clear(); //先清理缓存，以免数据不同步
-			if (actionThread == null) {
-				ActionThread thread = new ActionThread();
-				thread.start();
-				actionThread = thread;
-			}
-		} else {
-			if (actionThread != null) {
-				actionThread.quit();
-				actionThread = null;
-			}
-		}
 	}
 
 	public UserItemCacheImpl getUserItemCache() {
@@ -53,13 +51,11 @@ public class UserinfoDao {
 	public boolean create(Userinfo userinfo) {
 		if (userItemCache != null) {
 			userItemCache.updateUser(userinfo);
-			if (actionThread != null) {
-				actionThread.addCreateItem(userinfo);
-			}
+			actionThread.addCreateItem(userinfo);
 			return true;
 		}
 		//同步数据库
-		SqlSession session = getFactory().openSession();
+		SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE);
 		int ret = 0;
 		try {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
@@ -71,6 +67,30 @@ public class UserinfoDao {
 			session.rollback();
 			e.printStackTrace();
 		} finally {
+			session.clearCache();
+			session.close();
+		}
+		return (ret != 0);
+	}
+
+	public boolean createAll(List<Userinfo> userinfo) {
+		if (userItemCache != null) {
+			userItemCache.addUsers(userinfo);
+		}
+		SqlSession session = getSessionFactory().openSession(ExecutorType.BATCH);
+		int ret = 0;
+		try {
+			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
+			ret = mapper.insertList(userinfo);
+			if (ret != 0) {
+				session.commit();
+			}
+		} catch (Exception e) {
+			session.rollback();
+			session.clearCache();
+			e.printStackTrace();
+		} finally {
+			session.clearCache();
 			session.close();
 		}
 		return (ret != 0);
@@ -79,13 +99,11 @@ public class UserinfoDao {
 	public boolean update(Userinfo userinfo) {
 		if (userItemCache != null) {
 			userItemCache.updateUser(userinfo);
-			if (actionThread != null) {
-				actionThread.addUpdateItem(userinfo);
-			}
+			actionThread.addUpdateItem(userinfo);
 			return true;
 		}
 		//同步数据库
-		SqlSession session = getFactory().openSession();
+		SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE);
 		int ret = 0;
 		try {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
@@ -97,6 +115,7 @@ public class UserinfoDao {
 			session.rollback();
 			e.printStackTrace();
 		} finally {
+			session.clearCache();
 			session.close();
 		}
 		return (ret != 0);
@@ -105,13 +124,11 @@ public class UserinfoDao {
 	public boolean delete(String username) {
 		if (userItemCache != null) {
 			userItemCache.deleteUser(username);
-			if (actionThread != null) {
-				actionThread.addDeleteItem(username);
-			}
+			actionThread.addDeleteItem(username);
 			return true;
 		}
 		//同步数据库
-		SqlSession session = getFactory().openSession();
+		SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE);
 		int ret = 0;
 		try {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
@@ -123,6 +140,7 @@ public class UserinfoDao {
 			session.rollback();
 			e.printStackTrace();
 		} finally {
+			session.clearCache();
 			session.close();
 		}
 		return (ret != 0);
@@ -139,7 +157,7 @@ public class UserinfoDao {
 
 		//查数据库
 		Userinfo ret = null;
-		try (SqlSession session = getFactory().openSession()) {
+		try (SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE)) {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
 			ret = mapper.selectByUsername(username);
 
@@ -153,46 +171,90 @@ public class UserinfoDao {
 		return ret;
 	}
 
-	public Collection<Userinfo> getAllUser() {
-		//缓存优先
-		if (userItemCache != null) {
-			Collection<Userinfo> ret = userItemCache.getAllUsers();
-			if (ret != null) {
-				return ret;
-			}
-		}
-
+	public void buildUserCache() {
 		//分块读取数据库
-		List<Userinfo> list = new ArrayList<>();
-		try (SqlSession session = getFactory().openSession()) {
+		try (SqlSession session = getSessionFactory().openSession(ExecutorType.BATCH)) {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
-			List<Userinfo> tempList;
-			final int limit = 1000;
-			int begin = 0;
+			List<Map<String, Long>> sizeList = mapper.size();
+			final long count = sizeList.get(0).get("count");
+			final long halfCount = count/2;
+			//限制一次性访问数据库的数量，限制重建缓存最大数量
+			//缓存的数据量与数据量和机器配置有关，还有局域网网速是否够快
+			final long limit = loginProperties.getCacheUnit(), maxCacheLimit = loginProperties.getCacheTotal();
+			int loadSize = 0;
+			long begin = 0;
 			do {
-				tempList = mapper.select(begin, limit);
-				if (tempList.size() > 0) {
-					list.addAll(tempList);
-					begin += list.size();
-				}
-			} while (tempList.size() == limit);
+				List<Userinfo> tempList;
+                //理论上可以减少20%左右的扫描时间
+                if (begin > halfCount) {
+                    long prevBegin = count-begin-limit;
+                    long prevLimit = limit;
 
-			//同步到缓存
-			userItemCache.setAllUsers(list);
-			if (list.size() == 0) {
-				return null;
+                    //最后几条数据的情况
+                    if (prevBegin < 0) {
+                        prevLimit = count-begin;
+                        prevBegin = 0;
+                    }
+
+//				    logger.info("selectDesc("+prevBegin+","+prevLimit+")");
+                    tempList = mapper.selectFromEnd(prevBegin, prevLimit);
+                } else {
+//                    logger.info("select("+begin+","+limit+")");
+                    tempList = mapper.select(begin, limit);
+                }
+				if (tempList.size() > 0) {
+					//同步到缓存
+					if (userItemCache != null) {
+						userItemCache.addUsers(tempList);
+					}
+					loadSize = tempList.size();
+					begin += loadSize;
+				}
+			} while (loadSize == limit && begin < maxCacheLimit);
+			if (userItemCache != null) {
+				userItemCache.waitForAddUsers();
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return list;
+	}
+
+	/* 适用于小批量查询 */
+	public Collection<Userinfo> getUsers(int begin, int limit) {
+		//缓存优先会影响排序
+//		if (userItemCache != null) {
+//			Collection<Userinfo> ret = userItemCache.getUsers(begin, limit);
+//			if (ret != null && ret.size() > 1) {
+//				return ret;
+//			}
+//		}
+		try (SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE)) {
+			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
+			List<Userinfo> userinfos = mapper.select((long)begin, (long)limit);
+			//立即同步到缓存
+			if (userItemCache != null) {
+				userItemCache.addUsersSync(userinfos);
+			}
+			return userinfos;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public Long getSize() {
+		try (SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE)) {
+			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
+			return mapper.size().get(0).get("count");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	//等待数据库执行结束
 	public void waitAction() {
-		if (actionThread != null) {
-			actionThread.waitUntilDone();
-		}
+		actionThread.waitUntilDone();
 	}
 
 	private enum ActionItemType {
@@ -200,6 +262,17 @@ public class UserinfoDao {
 	}
 
 	private class ActionThread extends Thread {
+		private final BlockingQueue<Collection<ActionItem>> actionItemCache = new LinkedBlockingDeque<>(); //复合结构，为速度优化
+		private Collection<ActionItem> actionItemList = new LinkedList<>();
+		private final Lock actionItemLock = new ReentrantLock();
+		private final int maxCount = 1000;//最大记录数
+		static final int autoSaveTime = 1000;//自动检测毫秒
+		private boolean isExecute = true;
+		private final Timer timer = getTimer();
+		private final Object sessionObject = new Object(); //用于等待同步的
+		private boolean isUpdate = false;
+		private final Lock updateLock = new ReentrantLock();
+
 		private class ActionItem {
 			Userinfo userinfo;
 			ActionItemType type;
@@ -216,19 +289,27 @@ public class UserinfoDao {
 			}
 		}
 
-		private final List<List<ActionItem>> actionItemCache = new LinkedList<>(); //复合结构，为速度优化
-		private List<ActionItem> actionItemList = new ArrayList<>(); //超过最大记录数则装入复合结构
-		private final Lock lock = new ReentrantLock();
-		private final int maxCount = 150;//最大记录数
-		static final int autoSaveTime = 1000;//自动检测毫秒
-		private volatile boolean isExecute = true;
-		private final Timer timer = getTimer();
-
 		private void checkCache() {
 			if (actionItemList.size() > maxCount) {
-				actionItemCache.add(actionItemList);
-				actionItemList = new ArrayList<>();
+				actionItemCache.offer(actionItemList);
+				actionItemList = new LinkedList<>();
+
+				//强制更新以后，让计时器暂停一会
+				setUpdate(true);
 			}
+		}
+
+		public void setUpdate(boolean update) {
+			updateLock.lock();
+			isUpdate = update;
+			updateLock.unlock();
+		}
+
+		public boolean isUpdate() {
+			updateLock.lock();
+			boolean result = isUpdate;
+			updateLock.unlock();
+			return result;
 		}
 
 		private Timer getTimer() { //一定时间后强制更换容器
@@ -236,63 +317,72 @@ public class UserinfoDao {
 			ret.schedule(new TimerTask() {
 				@Override
 				public void run() {
-					lock.lock();
-					if (actionItemList.size() > 0) {
-						actionItemCache.add(actionItemList);
-						actionItemList = new ArrayList<>();
+					if (!isUpdate()) {
+						actionItemLock.lock();
+						if (actionItemList.size() > 0) {
+							actionItemCache.offer(actionItemList);
+							actionItemList = new LinkedList<>();
+						}
+						actionItemLock.unlock();
+					} else {
+						//暂停计时器后要恢复计时器
+						setUpdate(false);
 					}
-					lock.unlock();
 				}
 			}, autoSaveTime, autoSaveTime);
 			return ret;
 		}
 
 		void addCreateItem(Userinfo userinfo) {
-			lock.lock();
+			actionItemLock.lock();
 			actionItemList.add(new ActionItem(userinfo, ActionItemType.create));
 			checkCache();
-			lock.unlock();
+			actionItemLock.unlock();
 		}
 
 		void addUpdateItem(Userinfo userinfo) {
-			lock.lock();
+			actionItemLock.lock();
 			actionItemList.add(new ActionItem(userinfo, ActionItemType.update));
 			checkCache();
-			lock.unlock();
+			actionItemLock.unlock();
 		}
 
 		void addDeleteItem(String deleteItem) {
-			lock.lock();
+			actionItemLock.lock();
 			actionItemList.add(new ActionItem(deleteItem));
 			checkCache();
-			lock.unlock();
+			actionItemLock.unlock();
 		}
 
-		private List<ActionItem> getActionItemList() {
-			List<ActionItem> ret = null;
-			lock.lock();
-			if (actionItemCache.size() > 0) {
-				ret = actionItemCache.get(0);
-			}
-			lock.unlock();
-			return ret;
+		boolean isActionListEmpty() {
+			actionItemLock.lock();
+			boolean result = actionItemList.isEmpty();
+			actionItemLock.unlock();
+			return result;
 		}
 
 		@Override
 		public void run() {
+			Collection<ActionItem> items;
+			SqlSession session = null;
 			while (isExecute) {
-				List<ActionItem> items = getActionItemList();
-				if (items == null || items.size() <= 0) {
-					try {
-						sleep(500);
-					} catch (Exception e) {
-						e.printStackTrace();
+				try {
+					if (actionItemCache.isEmpty() && isActionListEmpty()) {
+						synchronized (sessionObject) {
+							sessionObject.notifyAll();
+						}
 					}
-					continue;
+					items = actionItemCache.take();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					break;
 				}
-				SqlSession session = getFactory().openSession();
+				if (session == null) {
+					session = getSessionFactory().openSession(ExecutorType.BATCH);
+				}
 				try {
 					UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
+
 					//创建、插入、删除只取前面的部分
 					for (ActionItem item : items) {
 						switch (item.type) {
@@ -307,38 +397,62 @@ public class UserinfoDao {
 								break;
 						}
 					}
+					StopWatch watch = new StopWatch();
+					watch.start();
 					session.commit();
+					watch.stop();
+					logger.info("session.commit() count = "+items.size()+" elapsed = "+watch.getTotalTimeMillis()+"ms");
 				} catch (Exception e) {
 					session.rollback();
 					e.printStackTrace();
-				} finally {
-					session.close();
-					lock.lock();
-					actionItemCache.remove(0);
-					lock.unlock();
+				}
+			}
+			if (session != null) {
+				session.close();
+			}
+			synchronized (sessionObject) {
+				sessionObject.notifyAll();
+			}
+			logger.info("ActionThread was exited");
+		}
+
+		void waitUntilDone() {
+			if (actionItemCache.isEmpty() && isActionListEmpty()) {
+				return;
+			}
+			synchronized (sessionObject) {
+				try {
+					sessionObject.wait();
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
 			}
 		}
 
-		void waitUntilDone() {
-			do {
-				lock.lock();
-				boolean isDone = (actionItemCache.size() == 0 && actionItemList.size() == 0);
-				lock.unlock();
-				if (isDone) {
-					break;
-				}
+		void quit() {
+			timer.cancel();
+			isExecute = false;
+			actionItemCache.add(new ConcurrentLinkedQueue<>());
+			synchronized (sessionObject) {
 				try {
-					sleep(500);
+					sessionObject.wait();
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-			} while (true);
+			}
+		}
+	}
+
+	private class ActionHookThread extends Thread {
+		ActionThread thread;
+		private ActionHookThread(ActionThread thread) {
+			this.thread = thread;
+			Runtime.getRuntime().addShutdownHook(this);
 		}
 
-		void quit() {
-			isExecute = false;
-			timer.cancel();
+		@Override
+		public void run() {
+			thread.quit();
 		}
 	}
 }

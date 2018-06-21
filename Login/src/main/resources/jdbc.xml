@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+    http://www.springframework.org/schema/context
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd
+    http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+    <context:annotation-config/>
+
+    <!-- 加载配置文件 -->
+    <context:property-placeholder location="classpath:jdbc.properties" ignore-unresolvable="true" />
+
+    <bean id="comboPooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driverClass}"/>
+        <property name="jdbcUrl" value="${jdbc.jdbcUrl}"/>
+        <property name="user" value="${jdbc.user}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="maxPoolSize" value="${dataSource.maxPoolSize}"/>
+        <property name="minPoolSize" value="${dataSource.minPoolSize}"/>
+        <property name="maxIdleTime" value="${dataSource.maxIdleTime}"/>
+        <property name="acquireIncrement" value="${dataSource.acquireIncrement}"/>
+        <property name="acquireRetryAttempts" value="${dataSource.acquireRetryAttempts}"/>
+        <property name="initialPoolSize" value="${dataSource.initialPoolSize}"/>
+        <property name="checkoutTimeout" value="${dataSource.checkoutTimeout}"/>
+        <property name="maxStatements" value="${dataSource.maxStatements}"/>
+    </bean>
+
+    <bean id="userinfoDao" class="com.htge.login.model.UserinfoDao">
+        <property name="sessionFactory" ref="sqlSessionFactoryBean"/>
+        <property name="loginProperties" ref="properties"/>
+        <property name="userItemCache" ref="redisUserItemCache"/>
+    </bean>
+
+    <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="comboPooledDataSource"/>
+        <property name="transactionFactory">
+            <bean class="org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory"/>
+        </property>
+    </bean>
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.htge.login.model.mapper"/>
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactoryBean"/>
+    </bean>
+</beans>
