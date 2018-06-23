@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 
@@ -29,10 +30,10 @@ public class ChangeMap {
         this.userinfoDao = userinfoDao;
     }
 
-    public Object changePage(HttpServletRequest request) {
+    public Object changePage(HttpServletRequest request, HttpServletResponse response) {
         Subject subject = SecurityUtils.getSubject();
+        Session session = subject.getSession();
         if (LoginManager.isAuthorized(subject)) {
-            Session session = subject.getSession();
             KeyPair keyPair = (KeyPair) session.getAttribute("keypair");
             if (keyPair == null) {
                 keyPair = Crypto.getCachedKeyPair();
@@ -46,7 +47,7 @@ public class ChangeMap {
                 return view;
             }
         }
-        return new ModelAndView("redirect:/auth/");
+        return LoginManager.redirectToRoot(session, request, response);
     }
 
     public ResponseEntity changeUserInfo(UserData userData) {

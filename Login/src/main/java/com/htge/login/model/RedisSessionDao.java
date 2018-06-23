@@ -11,10 +11,15 @@ import java.io.Serializable;
 public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     private SessionDBImpl sessionDB = null;
 
+    private Logger logger = Logger.getLogger(RedisSessionDao.class);
+
     public void setSessionDB(SessionDBImpl sessionDB) {
         this.sessionDB = sessionDB;
     }
-    private Logger logger = Logger.getLogger(RedisSessionDao.class);
+
+    public SessionDBImpl getSessionDB() {
+        return sessionDB;
+    }
 
     @Override
     protected Serializable doCreate(Session session) {

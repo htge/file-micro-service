@@ -1,6 +1,6 @@
 spring:
   rabbitmq:
-    host: localhost
+    host: 192.168.51.20
     port: 5672
     username: test
     password: 1234
@@ -17,16 +17,25 @@ management:
     roles: ["ADMIN"]
     enabled: true
   context-path: /manage
-server:
-  session:
-    cookie:
-      name: JSESSID
+#默认为JSESSIONID
+#server:
+#  session:
+#    cookie:
+#      name: JSESSID
 login:
-  next-root: http://localhost:8081/dl/
-  root-path: http://localhost:8080/auth/
+  #确保访问的域名或者ip相同，否则session信息会无法传递
+  next-root: http://192.168.51.20/dl/
+  root-path: http://192.168.51.20/auth/
+  #缓存用户记录设置
+  cache-enabled: false
+  #cache-total: 2000000
+  #cache-unit: 10000
+  session-timeout: 7200000 #2小时空闲
 file:
-  local-dir: /Users/ge/Desktop
+  #本地文件夹
+  local-dir: D:/安装
+  #相对路径
   server-root: /dl/
   authorization: true
+  #检测文件变更
   watcher: false
-  

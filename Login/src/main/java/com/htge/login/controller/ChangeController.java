@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 @Controller
 @RequestMapping("/auth")
@@ -19,8 +20,8 @@ public class ChangeController {
     private ChangeMap changeMap;
 
     @RequestMapping(value="/change", method= RequestMethod.GET)
-    public Object setting(HttpServletRequest request) {
-        return changeMap.changePage(request);
+    public Object setting(HttpServletRequest request, HttpServletResponse response) {
+        return changeMap.changePage(request, response);
     }
 
     @RequestMapping(value="/change", method=RequestMethod.POST)

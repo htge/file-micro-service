@@ -1,9 +1,6 @@
 package com.htge.download.rabbit;
 
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.*;
 import org.jboss.logging.Logger;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.Connection;
@@ -19,6 +16,19 @@ public class RPCClient {
     private String replyQueueName;
     private final ConcurrentHashMap<String, BlockingQueue<byte[]>> queryInfo = new ConcurrentHashMap<>();
     private Logger logger = Logger.getLogger(RPCClient.class);
+    private final DefaultConsumer consumer = new DefaultConsumer(channel) {
+        @Override
+        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
+            try {
+                String id = properties.getCorrelationId();
+                logger.info("response id = " + id);
+                BlockingQueue<byte[]> queue = queryInfo.get(id);
+                queue.offer(body);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
 
     public RPCClient() {
         new ShutdownHookThread(this);
@@ -35,19 +45,6 @@ public class RPCClient {
             channel = connection.createChannel(false);
             try {
                 replyQueueName = channel.queueDeclare().getQueue();
-                channel.basicConsume(replyQueueName, true, new DefaultConsumer(channel) {
-                    @Override
-                    public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) {
-                        try {
-                            String id = properties.getCorrelationId();
-                            logger.info("response id = " + id);
-                            BlockingQueue<byte[]> queue = queryInfo.get(id);
-                            queue.offer(body);
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
             } catch (IOException e) {
                 logger.warn("io error?");
                 e.printStackTrace();
@@ -59,16 +56,19 @@ public class RPCClient {
         BlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(1);
         queryInfo.put(corrId, queue);
 
-        AMQP.BasicProperties props = new AMQP.BasicProperties
-                .Builder()
-                .correlationId(corrId)
-                .replyTo(replyQueueName)
-                .build();
-        logger.info("corrId = "+corrId);
         if (connection.isOpen()) {
             try {
+                //basicConsume不会所有时间都能收到数据，所以需要每次请求的时候都设置一次
+                channel.basicConsume(replyQueueName, true, consumer);
+
+                //发布后，200ms超时，超时后重试
+                AMQP.BasicProperties props = new AMQP.BasicProperties
+                        .Builder()
+                        .correlationId(corrId)
+                        .replyTo(replyQueueName)
+                        .build();
+                logger.info("request id = "+corrId);
                 channel.basicPublish("", requestQueueName, props, message.getBytes("UTF-8"));
-                //200ms超时
                 byte[] polled = queue.poll(200, TimeUnit.MILLISECONDS);
                 if (polled != null) {
                     return new String(polled, "UTF-8");
@@ -77,6 +77,13 @@ public class RPCClient {
                     return retry(requestQueueName, message, n+1, limit);
                 }
             } catch (IOException | InterruptedException e) {
+                //遇到shutdown的错误，尝试自动恢复
+                if (e.getCause() instanceof ShutdownSignalException) {
+                    logger.warn("channel shutdown, retry...");
+                    connection.close();
+                    channel = null;
+                    return retry(requestQueueName, message, n+1, limit);
+                }
                 e.printStackTrace();
             }
             return null;
@@ -87,7 +94,7 @@ public class RPCClient {
     }
 
     public String call(String requestQueueName, String message) {
-        return retry(requestQueueName, message, 0, 5);
+        return retry(requestQueueName, message, 0, 3);
     }
 
     private class ShutdownHookThread extends Thread {
@@ -106,5 +113,6 @@ public class RPCClient {
     private void close() {
         logger.info("Close connection...");
         connection.close();
+        channel = null;
     }
 }

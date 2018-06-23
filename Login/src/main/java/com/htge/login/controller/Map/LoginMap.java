@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.htge.login.config.LoginProperties;
 import com.htge.login.model.UserData;
@@ -15,15 +17,18 @@ import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
+import org.jboss.logging.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 public class LoginMap {
+	private final Logger logger = Logger.getLogger(LoginMap.class);
     private LoginProperties properties;
 
 	public void setProperties(LoginProperties properties) {
@@ -50,7 +55,8 @@ public class LoginMap {
 				}
 				//sessionid始终变化的情况
 				if (sessionId == null || !session.getId().equals(sessionId)) {
-					return LoginManager.redirectToRoot(session, response);
+					logger.warn("session not equal, request: "+sessionId+" current: "+session.getId());
+					return LoginManager.redirectToRoot(session, request, response);
 				}
 				KeyPair keyPair = (KeyPair) session.getAttribute("keypair");
 				if (keyPair == null) {

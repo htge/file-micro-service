@@ -4,17 +4,36 @@ import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
+import org.apache.shiro.web.servlet.SimpleCookie;
 import org.jboss.logging.Logger;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.util.Assert;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.annotation.Resource;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
+@Configuration
+@ConfigurationProperties(prefix = "server.session.cookie")
 public class LoginManager {
 	public static final String SESSION_USER_KEY = "username";
 	private static final Logger logger = Logger.getLogger(LoginManager.class);
+	private static String sessionId = "JSESSIONID";
+
+	@Resource(name = "simpleCookie")
+	private SimpleCookie simpleCookie;
+
+	public void setName(String name) {
+		Assert.hasText(name, "server.session.cookie.name不能为空");
+		LoginManager.sessionId = name;
+		simpleCookie.setName(name);
+	}
 
 	public static class LoginRole {
 		public static final int Error = -1;
@@ -66,9 +85,34 @@ public class LoginManager {
 		subject.logout();
 	}
 
-	public static ModelAndView redirectToRoot(Session session, HttpServletResponse response) {
-		Cookie cookie = new Cookie("JSESSID", session.getId().toString());
-		response.addCookie(cookie);
+	public static ModelAndView redirectToRoot(Session session, HttpServletRequest request, HttpServletResponse response) {
+		final String HttpSetCookieKey = "Set-Cookie";
+		String newSessionId = session.getId().toString();
+		String cookieInfo = response.getHeader(HttpSetCookieKey);
+
+		//Shiro没有生成Cookie，执行以下代码生成，不过并不能解决sessionIdCookieEnabled设置为false的问题
+		if (cookieInfo == null) {
+			Cookie cookie = new Cookie(sessionId, newSessionId);
+			cookie.setPath("/");
+			cookie.setHttpOnly(true);
+			response.addCookie(cookie);
+			logger.info("Add Set-Cookie: "+response.getHeader(HttpSetCookieKey));
+		} else {
+			logger.info("Shiro generated Set-Cookie: "+cookieInfo);
+		}
+		//处理Cookie污染的问题导致Shiro无法正常找到指定的Session
+		Cookie[] cookies = request.getCookies();
+		for (Cookie cookie : cookies) {
+			if (cookie.getName().equals(sessionId)) {
+				String oldSession = cookie.getValue();
+				if (!oldSession.equals(newSessionId)) {
+					Cookie newCookie = new Cookie(sessionId, oldSession);
+					newCookie.setMaxAge(0);
+					response.addCookie(newCookie);
+					logger.info("Remove cookie: "+oldSession);
+				}
+			}
+		}
 		try {
 			response.sendRedirect("/auth/");
 		} catch (IOException e) {

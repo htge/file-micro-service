@@ -48,7 +48,7 @@ public class RegisterMap {
 				return view;
 			}
 		}
-		return LoginManager.redirectToRoot(session, response);
+		return LoginManager.redirectToRoot(session, request, response);
 	}
 
 	public ResponseEntity register(@ModelAttribute UserData userData) {

@@ -1,6 +1,6 @@
 import com.htge.login.boot.Application;
-import com.htge.login.config.AppConfig;
-import com.htge.login.model.RedisSessionDB;
+import com.htge.login.model.RedisSessionDao;
+import com.htge.login.model.SessionDBImpl;
 import com.htge.login.util.LoginManager;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.mgt.SimpleSession;
@@ -12,11 +12,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.util.StopWatch;
-import redis.clients.jedis.JedisPool;
 
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -29,11 +26,14 @@ public class RedisTest {
     private final CountCheck counter = new CountCheck();
 
     @Autowired
-    RedisSessionDB sessionDB;
+    RedisSessionDao redisSessionDao;
+
+    private SessionDBImpl sessionDB = null;
 
     @Before
     public void sessionDBInAnyCastInit() {
         counter.initialize(0);
+        sessionDB = redisSessionDao.getSessionDB();
     }
 
     @Test

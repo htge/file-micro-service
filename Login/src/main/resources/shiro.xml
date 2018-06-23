@@ -10,6 +10,11 @@
 
     <context:annotation-config/>
 
+    <bean id="simpleCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <property name="name" value="JSESSIONID"/>
+        <property name="httpOnly" value="true"/>
+    </bean>
+
     <bean id="webSessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
         <property name="globalSessionTimeout" value="300000"/><!--未登录Session超时5分钟，单位ms-->
         <property name="deleteInvalidSessions" value="true"/>
@@ -21,12 +26,7 @@
             </bean>
         </property>
         <property name="sessionIdCookieEnabled" value="true"/>
-        <property name="sessionIdCookie">
-            <bean class="org.apache.shiro.web.servlet.SimpleCookie">
-                <property name="name" value="${server.session.cookie.name}"/>
-                <property name="httpOnly" value="true"/>
-            </bean>
-        </property>
+        <property name="sessionIdCookie" ref="simpleCookie"/>
         <property name="sessionDAO" ref="redisSessionDao"/>
     </bean>
 
