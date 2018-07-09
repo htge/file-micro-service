@@ -6,21 +6,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class FileHash {
-    public static String getFileMD5(File file) {
+    public static String getFileETag(File file) {
+//        String md5 = getFileMD5(file);
+//        if (md5 != null) {
+        return String.format("\"%x-%x\"", file.lastModified(), file.length());
+//        }
+//        return null;
+    }
+
+    @SuppressWarnings({"UnusedDeclaration"})
+    private static String getFileMD5(File file) {
         InputStream inputStream = null;
         String MD5 = null;
         try {
-            int len;
-            byte[] buffer = new byte[65536];
             inputStream = new FileInputStream(file);
-            MessageDigest md5 = MessageDigest.getInstance("md5");
-            while ((len = inputStream.read(buffer)) != -1) {
-                md5.update(buffer, 0, len);
-            }
-            byte[] result = md5.digest();
-            MD5 = new BigInteger(1, result).toString(16);
+            MD5 = getMD5(inputStream);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -32,6 +35,59 @@ public class FileHash {
                 e.printStackTrace();
             }
         }
-        return "\""+MD5+"\"";
+        return MD5;
+    }
+
+    private static String getMD5(InputStream inputStream) {
+        String MD5 = null;
+        try {
+            int len;
+            final byte[] buffer = new byte[1048576];
+            final MessageDigest md5 = MessageDigest.getInstance("md5");
+            while ((len = inputStream.read(buffer)) != -1) {
+                md5.update(buffer, 0, len);
+            }
+            final BigInteger integer = new BigInteger(1, md5.digest());
+            MD5 = String.format("%032x", integer);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return MD5;
+    }
+
+    @SuppressWarnings({"UnusedDeclaration"})
+    private static String getSHA1(InputStream inputStream) {
+        String MD5 = null;
+        try {
+            int len;
+            final byte[] buffer = new byte[1048576];
+            final MessageDigest md5 = MessageDigest.getInstance("SHA-1");
+            while ((len = inputStream.read(buffer)) != -1) {
+                md5.update(buffer, 0, len);
+            }
+            final BigInteger integer = new BigInteger(1, md5.digest());
+            MD5 = String.format("%032x", integer);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return MD5;
+    }
+
+    @SuppressWarnings({"UnusedDeclaration"})
+    private static String getSHA256(InputStream inputStream) {
+        String MD5 = null;
+        try {
+            int len;
+            final byte[] buffer = new byte[1048576];
+            final MessageDigest md5 = MessageDigest.getInstance("SHA-256");
+            while ((len = inputStream.read(buffer)) != -1) {
+                md5.update(buffer, 0, len);
+            }
+            final BigInteger integer = new BigInteger(1, md5.digest());
+            MD5 = String.format("%032x", integer);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return MD5;
     }
 }

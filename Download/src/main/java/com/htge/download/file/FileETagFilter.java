@@ -1,5 +1,7 @@
 package com.htge.download.file;
 
+import com.google.common.util.concurrent.RateLimiter;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.web.filter.ShallowEtagHeaderFilter;
@@ -11,18 +13,17 @@ import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
-import javax.xml.ws.Response;
 import java.io.*;
-import java.util.Map;
 
 @Component
 public class FileETagFilter extends ShallowEtagHeaderFilter {
     private static final String HEADER_ETAG = "ETag";
-
     private static final String HEADER_IF_NONE_MATCH = "If-None-Match";
-
     private static final String STREAMING_ATTRIBUTE = ShallowEtagHeaderFilter.class.getName() + ".STREAMING";
+
+    //全局限速，速率=limiter.getRate()*blockSize
+    private static final int blockSize = 16384;
+    private static final RateLimiter limiter = RateLimiter.create(64.0);
 
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -77,14 +78,15 @@ public class FileETagFilter extends ShallowEtagHeaderFilter {
             long start = fileRange.getStart();
             long size = fileRange.getEnd() - start + 1;
             if (start > 0) { //跳过N个字节
-                if (inputStream.skip(start) < 0) {
+                if (inputStream.skip(start) != start) {
                     logger.error("Skip file failed?");
                 }
             }
 
-            byte[] b = new byte[1048576];
+            byte[] b = new byte[blockSize];
             int n;
             while (size > 0 && (n = inputStream.read(b)) != -1) {
+                limiter.acquire();
                 if (size > n) {
                     outputStream.write(b, 0, n);
                 } else {
@@ -96,7 +98,9 @@ public class FileETagFilter extends ShallowEtagHeaderFilter {
                 outputStream.flush();
                 outputStream.close();
             }
-        } catch (Exception e) {
+        } catch (ClientAbortException e) {
+            logger.info("Download "+file.toString()+" abouted");
+        } catch (IOException e) {
             e.printStackTrace();
         } finally {
             try { //这里要关闭资源

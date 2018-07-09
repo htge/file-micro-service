@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.security.KeyPair;
 import java.security.PrivateKey;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.htge.login.config.LoginProperties;
 import com.htge.login.model.UserData;
@@ -23,7 +21,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -54,14 +51,11 @@ public class LoginMap {
 					return new ResponseEntity<>("{}", HttpStatus.INTERNAL_SERVER_ERROR);
 				}
 				//sessionid始终变化的情况
-				if (sessionId == null || !session.getId().equals(sessionId)) {
+				if (sessionId != null && !session.getId().equals(sessionId)) {
 					logger.warn("session not equal, request: "+sessionId+" current: "+session.getId());
 					return LoginManager.redirectToRoot(session, request, response);
 				}
-				KeyPair keyPair = (KeyPair) session.getAttribute("keypair");
-				if (keyPair == null) {
-					keyPair = Crypto.getCachedKeyPair();
-				}
+				KeyPair keyPair = Crypto.getCachedKeyPair();
 				if (keyPair != null) {
 					String rsaPublicKey = Crypto.getPublicKey(keyPair);
 					session.setAttribute("keypair", keyPair);
@@ -101,7 +95,7 @@ public class LoginMap {
 					session.removeAttribute("keypair");//清理之前的旧信息
 
 					String lastUri = (String) session.getAttribute("url");
-					StringBuilder url = new StringBuilder("");
+					StringBuilder url = new StringBuilder();
 					if (lastUri == null) {
 						return new ResponseEntity<>("{}", HttpStatus.OK);
 					}

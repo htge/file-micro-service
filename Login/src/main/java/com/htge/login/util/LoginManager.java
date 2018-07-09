@@ -16,8 +16,6 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 @Configuration
 @ConfigurationProperties(prefix = "server.session.cookie")
@@ -35,6 +33,7 @@ public class LoginManager {
 		simpleCookie.setName(name);
 	}
 
+	@SuppressWarnings({"unused", "WeakerAccess"})
 	public static class LoginRole {
 		public static final int Error = -1;
 		public static final int Normal = 0;
@@ -102,14 +101,16 @@ public class LoginManager {
 		}
 		//处理Cookie污染的问题导致Shiro无法正常找到指定的Session
 		Cookie[] cookies = request.getCookies();
-		for (Cookie cookie : cookies) {
-			if (cookie.getName().equals(sessionId)) {
-				String oldSession = cookie.getValue();
-				if (!oldSession.equals(newSessionId)) {
-					Cookie newCookie = new Cookie(sessionId, oldSession);
-					newCookie.setMaxAge(0);
-					response.addCookie(newCookie);
-					logger.info("Remove cookie: "+oldSession);
+		if (cookies != null) {
+			for (Cookie cookie : cookies) {
+				if (cookie.getName().equals(sessionId)) {
+					String oldSession = cookie.getValue();
+					if (!oldSession.equals(newSessionId)) {
+						Cookie newCookie = new Cookie(sessionId, oldSession);
+						newCookie.setMaxAge(0);
+						response.addCookie(newCookie);
+						logger.info("Remove cookie: " + oldSession);
+					}
 				}
 			}
 		}

@@ -1,27 +1,30 @@
 package com.htge.login.rabbit;
 
-
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Consumer;
-import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.*;
 import org.jboss.logging.Logger;
+import org.springframework.amqp.AmqpConnectException;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.Connection;
 
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class RPCServer {
-    private final String RPC_QUEUE_NAME = "login_queue";
-    private final Logger logger = Logger.getLogger(RPCServer.class);
-    private final ReentrantLock createLock = new ReentrantLock();
-    private boolean isCreated = false;
-    private Connection connection = null;
+    @SuppressWarnings("FieldCanBeLocal")
+    private static Logger logger = Logger.getLogger(RPCServer.class);
+    private static final ReentrantLock createLock = new ReentrantLock();
+    private static boolean isCreated = false;
+    private static boolean isRunning = true;
+    private final Object waitObject = new Object();
 
-    private CachingConnectionFactory factory;
-    private RPCData rpcData;
+    private Channel channel = null;
+    private Connection connection = null;
+    private Consumer consumer = null;
+
+    private CachingConnectionFactory factory = null;
+    private RPCData rpcData = null;
+    private String queueName = null;
 
     public void setFactory(CachingConnectionFactory factory) {
         this.factory = factory;
@@ -31,71 +34,147 @@ public class RPCServer {
         this.rpcData = rpcData;
     }
 
+    public void setQueueName(String queueName) {
+        this.queueName = queueName;
+    }
+
+    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
     public void startServer() {
         //不允许多实例
         if (doTrick()) {
             return;
         }
 
-        Runnable task = () -> {
+        new Thread(()-> {
+            while (isRunning) {
+                try {
+                    runServer();
+                } catch (IOException e) {
+                    //连接遇到意外关闭的情况，恢复
+                    if (e.getCause() instanceof ShutdownSignalException) {
+                        logger.info("restart RPC server...");
+                    } else {
+                        e.printStackTrace();
+                        break;
+                    }
+                } catch (AmqpConnectException e) {
+                    try {
+                        logger.info("connecting RPC server...");
+                        cleanup();
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ex) {
+                        ex.printStackTrace();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    cleanup();
+                }
+            }
+        }).start();
+        new RPCThreadHook(() -> {
+            isRunning = false;
+            cleanup();
+        });
+    }
+
+    private void cleanup() {
+        closeChannel();
+        closeConnection();
+    }
+
+    private void closeChannel() {
+        if (channel != null) {
             try {
-                connection = factory.createConnection();
-                final Channel channel = connection.createChannel(false);
+                channel.close();
+                channel = null;
+            } catch (TimeoutException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-                channel.queueDeclare(RPC_QUEUE_NAME, false, false, false, null);
+    private void closeConnection() {
+        if (connection != null) {
+            connection.close();
+            connection = null;
+        }
+    }
 
-                channel.basicQos(1);
+    private void runServer() throws IOException {
+        connection = factory.createConnection();
+        channel = connection.createChannel(false);
 
-                logger.info(" [x] Awaiting RPC requests");
+        for (int i=0; i<2; i++) {
+            try {
+                channel.queueDeclare(queueName, false, false, false, null);
+            } catch (Exception e) {
+                channel.queueDelete(queueName);
+            }
+        }
 
-                //创建了永久的channel，直到程序退出才会释放，handleDelivery会一直处理请求
-                final Consumer consumer = new DefaultConsumer(channel) {
+        channel.basicQos(1);
+
+        logger.info(" [x] Awaiting RPC requests");
+
+        while (channel != null && channel.isOpen()) {
+            if (consumer == null) {
+                logger.info("Creating default consumer...");
+                consumer = new DefaultConsumer(channel) {
                     @Override
                     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                         AMQP.BasicProperties replyProps = new AMQP.BasicProperties
                                 .Builder()
                                 .correlationId(properties.getCorrelationId())
                                 .build();
-                        logger.info("corrId = "+properties.getCorrelationId());
 
                         String response = "";
 
                         try {
                             response = rpcData.parseData(new String(body, "UTF-8"));
-                        }
-                        catch (Exception e){
+                            logger.info("RPC Response: consumerTag = "+consumerTag+" corrId = " + properties.getCorrelationId() + "\nresponse = " + response);
+                        } catch (Exception e) {
                             logger.error(" [.] " + e.toString());
-                        }
-                        finally {
-                            channel.basicPublish( "", properties.getReplyTo(), replyProps, response.getBytes("UTF-8"));
-                            channel.basicAck(envelope.getDeliveryTag(), false);
-                            // RabbitMq consumer worker thread notifies the RPC server owner thread
-                            synchronized(this) {
-                                this.notify();
+                        } finally {
+                            if (response != null) {
+                                channel.basicPublish("", properties.getReplyTo(), replyProps, response.getBytes("UTF-8"));
+                                logger.info("basicAck: consumerTag = "+envelope.getDeliveryTag());
+                                channel.basicAck(envelope.getDeliveryTag(), false);
+                                //无用的consumer，必须释放，否则可能导致服务资源占满
+                                channel.basicCancel(consumerTag);
+                                synchronized (waitObject) {
+                                    waitObject.notifyAll();
+                                }
                             }
                         }
                     }
-                };
 
-                channel.basicConsume(RPC_QUEUE_NAME, false, consumer);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                if (connection != null) {
-                    connection.close();
+                    @Override
+                    public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
+                        logger.warn("handleShutdownSignal, resume...");
+                        //RabbitMQ服务重启后，先清理资源再不断重试，直到连接成功
+                        synchronized (waitObject) {
+                            consumer = null;
+                            cleanup();
+                            waitObject.notifyAll();
+                        }
+                        super.handleShutdownSignal(consumerTag, sig);
+                    }
+                };
+            }
+
+            channel.basicConsume(queueName, false, consumer);
+            synchronized (waitObject) {
+                try {
+                    waitObject.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             }
-        };
-        new Thread(task).start();
-        new RPCThreadHook(() -> {
-            if (connection != null) {
-                connection.close();
-                connection = null;
-            }
-        });
+        }
     }
 
-    private boolean doTrick() {
+    private static boolean doTrick() {
         createLock.lock();
         boolean created = isCreated;
         isCreated = true;

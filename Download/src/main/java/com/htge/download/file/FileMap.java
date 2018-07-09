@@ -52,7 +52,7 @@ public class FileMap {
 		int beginIndex = index + properties.getServerRoot().length() - 1;
 		if (contextPath.length() >= beginIndex) {
 			relativePath = contextPath.substring(beginIndex);
-			if (relativePath.length() > 1) {
+			if (relativePath.length() > 1 && relativePath.indexOf("/") != 0) {
 				relativePath = "/" + relativePath;
 			}
 		}
@@ -76,17 +76,17 @@ public class FileMap {
 				//拿不到缓存的情况下
 				if (eTag == null) {
 					logger.info("Generate ETag from file: " + file.toString());
-					eTag = FileHash.getFileMD5(file);
+					eTag = FileHash.getFileETag(file);
 				}
 
-				//只有断点续传的时候，要求ETag与if-range头匹配
-				String ifRangeStr = request.getHeader("if-range");
-				if (rangeStr != null && !eTag.equals(ifRangeStr)) {
-					HttpHeaders headers = new HttpHeaders();
-					headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-					headers.set("Accept-Ranges", "bytes");
-					return new ResponseEntity<>(headers, HttpStatus.BAD_REQUEST);
-				}
+				//只有断点续传的时候，要求ETag与if-range头匹配（会导致下载工具无法起作用）
+//				String ifRangeStr = request.getHeader("if-range");
+//				if (rangeStr != null && !eTag.equals(ifRangeStr)) {
+//					HttpHeaders headers = new HttpHeaders();
+//					headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+//					headers.set("Accept-Ranges", "bytes");
+//					return new ResponseEntity<>(headers, HttpStatus.BAD_REQUEST);
+//				}
 
 				//范围检查，遇到不正确的范围则返回错误
 				fileRange = generateFileRange(rangeStr, file);
@@ -110,7 +110,7 @@ public class FileMap {
 				loginData = loginClient.getLoginInfo(sessionId);
 			}
 			if (loginData == null) {
-				return new ModelAndView("notfound");
+				return new ModelAndView("rpcerror");
 			}
 			if (loginData.getErrorMessage() != null) {
                 logger.error("errorMessage = "+loginData.getErrorMessage());
@@ -159,14 +159,16 @@ public class FileMap {
                 isFile = file.isFile();
                 modified = file.lastModified();
                 lastModified = getLastModifiedStr(modified);
+                String filename = file.getName();
                 if (isFile) {
-                    name = file.getName();
+                    name = filename;
+                    encodedName =  URLEncoder.encode(filename, "UTF-8");
                     size = getFileSizeStr(file.length());
                 } else {
-                    name = file.getName() + "/";
+                    name = filename + "/";
+					encodedName =  URLEncoder.encode(filename, "UTF-8") + "/";
                     size = "";
                 }
-                encodedName = URLEncoder.encode(name, "UTF-8");
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }

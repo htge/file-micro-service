@@ -13,7 +13,7 @@ import org.springframework.util.StopWatch;
 @EnableCaching(proxyTargetClass = true)
 public class ElapsedTime {
 
-    private Logger logger = Logger.getLogger(ElapsedTime.class);
+    final private Logger logger = Logger.getLogger(ElapsedTime.class);
 
     @Around("execution(* com.htge.login.rabbit.AuthRPCData.parseData(..))")
     public Object parseElapsed(ProceedingJoinPoint proceedingJoinPoint) {
@@ -34,7 +34,7 @@ public class ElapsedTime {
             stopWatch.start();
             ret = proceedingJoinPoint.proceed();
             stopWatch.stop();
-            logger.info(className+"."+methodName+"() elapsed: " + stopWatch.getTotalTimeMillis() + "ms");
+            logger.info(className+"."+methodName+"() elapsed: "+stopWatch.getTotalTimeMillis()+"ms");
         } catch (Throwable e) {
             e.printStackTrace();
         }

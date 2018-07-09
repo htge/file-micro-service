@@ -2,7 +2,6 @@ package com.htge.login.rabbit;
 
 import com.htge.login.config.LoginProperties;
 import com.htge.login.model.RedisSessionDao;
-import com.htge.login.model.SessionDBImpl;
 import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
 import com.htge.login.util.LoginManager;
@@ -47,7 +46,6 @@ public class AuthRPCData implements RPCData {
             ret.put("error", e.getLocalizedMessage());
         } finally {
             retStr = ret.toString();
-            logger.info("RPC Response: "+retStr);
         }
         return retStr;
     }

@@ -2,6 +2,7 @@ package com.htge.login.model;
 
 import com.htge.login.config.LoginProperties;
 import com.htge.login.model.mapper.UserinfoMapper;
+import org.apache.ibatis.binding.BindingException;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -73,6 +74,7 @@ public class UserinfoDao {
 		return (ret != 0);
 	}
 
+	@SuppressWarnings("unused")
 	public boolean createAll(List<Userinfo> userinfo) {
 		if (userItemCache != null) {
 			userItemCache.addUsers(userinfo);
@@ -165,6 +167,8 @@ public class UserinfoDao {
 			if (userItemCache != null && ret != null) {
 				userItemCache.updateUser(ret);
 			}
+		} catch (BindingException e) {
+			logger.warn("UserinfoMapper was not ready");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

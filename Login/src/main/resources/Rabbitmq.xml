@@ -22,6 +22,7 @@
                         <property name="sessionDao" ref="redisSessionDao"/>
                     </bean>
                 </property>
+                <property name="queueName" value="login_queue"/>
             </bean>
         </property>
         <property name="targetMethod" value="startServer"/>

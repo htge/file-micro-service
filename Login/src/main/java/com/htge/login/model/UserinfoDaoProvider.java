@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 public class UserinfoDaoProvider {
+    @SuppressWarnings("unused")
     public String insertList(Map map) {
         List userinfos = (List)map.get("list");
         StringBuilder sb = new StringBuilder();

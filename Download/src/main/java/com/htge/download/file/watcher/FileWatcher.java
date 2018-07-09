@@ -5,7 +5,6 @@ import com.htge.download.file.cache.ETagCache;
 import com.htge.download.file.util.FileHash;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import org.jboss.logging.Logger;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,8 +24,14 @@ public class FileWatcher {
 
     public void setProperties(FileProperties properties) {
         if (properties.isWatcher()) {
-            File localFile = new File(properties.getLocalDir());
-            watchPathTree(localFile.toPath());
+            if (properties.isCalcmd5()) {
+                File localFile = new File(properties.getLocalDir());
+
+                //在线程做，遍历缓存md5信息
+                new Thread(()->
+                    watchPathTree(localFile.toPath())
+                ).start();
+            }
         }
     }
 
@@ -51,14 +56,12 @@ public class FileWatcher {
     /* 一次性获取 */
     private void generateFileMD5(File file) {
         Path newPath = file.toPath();
-        String md5 = FileHash.getFileMD5(file);
-        if (md5 != null) {
-            logger.info("generated "+newPath+" MD5: " + md5);
-            eTagCache.setETag(newPath, md5);
-        }
+        String eTag = FileHash.getFileETag(file);
+        logger.info("generated "+newPath+" MD5: " + eTag);
+        eTagCache.setETag(newPath, eTag);
     }
 
-    public void watchPathTree(Path path) {
+    private void watchPathTree(Path path) {
         eTagCache.generateTree(path);
         Runnable runnable = () -> {
             try {

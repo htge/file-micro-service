@@ -39,3 +39,7 @@ file:
   authorization: true
   #检测文件变更
   watcher: false
+upload:
+  authorization: false
+  #最大缓存大小10MB，可配合FTL调整
+  blockSize: 10485760

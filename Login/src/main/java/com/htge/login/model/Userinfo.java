@@ -2,6 +2,7 @@ package com.htge.login.model;
 
 import java.io.Serializable;
 
+@SuppressWarnings("all")
 public class Userinfo implements Serializable {
     private static final long serialVersionUID = 1L;
     /**

@@ -3,6 +3,7 @@ package com.htge.login.util;
 import java.security.*;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.codec.binary.Base64;
@@ -87,7 +88,7 @@ public class Crypto {
 	/*############### RSA ##############*/
 	static private final Provider provider = new BouncyCastleProvider();
 	static private KeyPair cachedKeyPair = generateRSAKeyPairs();
-	static private final ReentrantLock lock = new ReentrantLock();
+	static private final Lock lock = new ReentrantLock();
 	static private final int KEYPAIR_TIMEOUT = 300000; //因为RSA信息产生的时间长，5分钟换一次
 	static private final int KEY_SIZE = 3072;
 

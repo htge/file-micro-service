@@ -30,6 +30,7 @@ public class UserData {
 		return this.validation;
 	}
 
+	@SuppressWarnings("unused")
 	public String getUserData() {
 		return this.userdata;
 	}
@@ -48,6 +49,7 @@ public class UserData {
 		this.password = password;
 	}
 
+	@SuppressWarnings("unused")
 	public void setValidation(String validation) {
 		this.validation = validation;
 	}
@@ -56,6 +58,7 @@ public class UserData {
 		this.userdata = userData;
 	}
 
+	@SuppressWarnings("unused")
 	public void setRole(String role) {
 		this.role = role;
 	}
@@ -75,17 +78,19 @@ public class UserData {
 				bytes = Arrays.copyOfRange(bytes, 1, bytes.length);
 			}
 			byte[] decrypted = Crypto.decryptRSA(bytes, privateKey);
-			String decryptKey = new String(decrypted, "UTF-8");
-			String loginInfo = Crypto.decryptFromPage(encryptedData, decryptKey);
-			JSONObject jsonObject = JSONObject.fromObject(loginInfo);
-			username = (String)jsonObject.get("username");
-			password = (String)jsonObject.get("password");
-			if (jsonObject.containsKey("newPassword")) { //修改密码的信息
-				newPassword = (String)jsonObject.get("newPassword");
-				validation = (String)jsonObject.get("validation");
-			} else if (jsonObject.containsKey("validation")) { //注册用到的信息
-				validation = (String)jsonObject.get("validation");
-				role = (String)jsonObject.get("role");
+			if (decrypted != null) {
+				String decryptKey = new String(decrypted, "UTF-8");
+				String loginInfo = Crypto.decryptFromPage(encryptedData, decryptKey);
+				JSONObject jsonObject = JSONObject.fromObject(loginInfo);
+				username = (String) jsonObject.get("username");
+				password = (String) jsonObject.get("password");
+				if (jsonObject.containsKey("newPassword")) { //修改密码的信息
+					newPassword = (String) jsonObject.get("newPassword");
+					validation = (String) jsonObject.get("validation");
+				} else if (jsonObject.containsKey("validation")) { //注册用到的信息
+					validation = (String) jsonObject.get("validation");
+					role = (String) jsonObject.get("role");
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

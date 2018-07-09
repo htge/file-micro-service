@@ -36,11 +36,7 @@ public class RedisUserItemCache implements UserItemCacheImpl {
                             waitObject.notifyAll();
                         }
                     }
-                    Collection<Userinfo> userinfos = queues.take();
-                    if (userinfos == null) {
-                        continue;
-                    }
-                    addUsersSync(userinfos);
+                    addUsersSync(queues.take());
                 } catch (Exception e) {
                     e.printStackTrace();
                     break;
@@ -94,6 +90,7 @@ public class RedisUserItemCache implements UserItemCacheImpl {
         }
     }
 
+    @SuppressWarnings({"rawtypes","unchecked"})
     private void setUsers(Iterator<Userinfo> iterator) {
         final int limit = loginProperties.getCacheUnit();
         if (limit <= 0) {

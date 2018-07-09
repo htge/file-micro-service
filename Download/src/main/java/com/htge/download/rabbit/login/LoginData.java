@@ -11,13 +11,14 @@ public class LoginData {
     private String logoutPath;
     private String errorMessage;
 
+    @SuppressWarnings("unused")
     public static class LoginRole {
         public static final int Error = -1;
         public static final int Normal = 0;
         public static final int Admin = 1;
     }
 
-    public LoginData(String data) throws JSONException {
+    LoginData(String data) throws JSONException {
         JSONObject jsonObject = JSONObject.fromObject(data);
         if (jsonObject.containsKey("error")) {
             errorMessage = jsonObject.getString("error");

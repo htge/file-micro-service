@@ -11,7 +11,7 @@ public class RedisFactoryManager {
         this.jedisConnectionFactory = jedisConnectionFactory;
     }
 
-    public RedisTemplate<String, Object> getTemplate(int database) {
+    RedisTemplate<String, Object> getTemplate(int database) {
         JedisConnectionFactory factory = new JedisConnectionFactory();
         BeanUtils.copyProperties(jedisConnectionFactory, factory);
         factory.setShardInfo(null);

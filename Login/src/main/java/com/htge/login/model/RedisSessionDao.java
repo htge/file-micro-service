@@ -24,7 +24,7 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     @Override
     protected Serializable doCreate(Session session) {
         Serializable ret = super.doCreate(session);
-        logger.info("doCreate: "+ret.toString());
+        logger.debug("doCreate: "+ret.toString());
         sessionDB.update(session); //没有设置db，抛异常，下同
         return ret;
     }
@@ -34,7 +34,7 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
         //shiro内置缓存优先，没有的情况再找redis
         Session session = super.getCachedSession(sessionId);
         if (session == null) {
-            logger.info("readSession: "+sessionId.toString());
+            logger.debug("readSession: "+sessionId.toString());
             session = sessionDB.get(sessionId);
             if (session != null) {
                 //从redis找到后，放到shiro内置缓存中去，否则让shiro内置的方法创建后，自动调用doUpdate方法与redis同步
@@ -52,13 +52,13 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
 
     @Override
     protected void doUpdate(Session session) {
-        logger.info("doUpdate: "+session.toString());
+        logger.debug("doUpdate: "+session.toString());
         sessionDB.update(session);
     }
 
     @Override
     protected void doDelete(Session session) {
-        logger.info("doDelete: "+session.toString());
+        logger.debug("doDelete: "+session.toString());
         sessionDB.delete(session);
     }
 }
