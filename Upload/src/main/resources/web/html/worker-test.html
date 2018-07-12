@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<script>
+    var w;
+
+    function startWorker(callback) {
+        if (typeof(Worker) !== "undefined") {
+            if (typeof(w) === "undefined") {
+                w = new Worker("/up/js/demo_workers.js");
+            }
+            w.onmessage = function(e) {
+                callback(e.data);
+            };
+            w.postMessage(123);
+        } else {
+            alert("not supported");
+        }
+    }
+</script>
+<body onload="startWorker(function(data) {
+    alert(data);
+});">
+
+</body>
+</html>

@@ -4,6 +4,7 @@ import com.htge.upload.config.UploadProperties;
 import com.htge.upload.controller.util.FileHash;
 import com.htge.upload.controller.util.FileItem;
 import com.htge.upload.controller.util.FileOperationQueue;
+import com.htge.upload.controller.util.FileOperationQueueManager;
 import com.htge.upload.rabbit.login.LoginClient;
 import com.htge.upload.rabbit.login.LoginData;
 import com.htge.upload.rabbit.upload.UploadClient;
@@ -12,7 +13,6 @@ import org.jboss.logging.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.multipart.MultipartFile;
@@ -58,22 +58,12 @@ public class UploadController {
 
     private Object getLoginStatus(HttpServletRequest request, HttpServletResponse response, GetLoginStatusCallback callback) {
         if (uploadProperties.isAuthorization()) {
-            LoginData loginData = null;
+            LoginData loginData;
             try {
                 String sessionId = request.getRequestedSessionId();
-                if (sessionId != null) {
-//			    loginData = new LoginData("{\"role\":1,\"isValidSession\":true,\"rootPath\":\"http://192.168.51.20/auth/\",\"logoutPath\":\"http://192.168.51.20/auth/logout\",\"settingPath\":\"http://192.168.51.20/auth/setting\"}");
-                    final StopWatch stopWatch = new StopWatch();
-                    stopWatch.start();
-                    loginData = loginClient.getLoginInfo(sessionId);
-                    stopWatch.stop();
-                    long millis = stopWatch.getTotalTimeMillis();
-                    if (millis > 10) {
-                        logger.warn("Upload elapsed: "+millis);
-                    }
-                }
+                loginData = loginClient.getLoginInfo(sessionId);
                 if (loginData == null) {
-                    return new ModelAndView("rpcerror");
+                    return new ModelAndView("error", "message", "RPC服务器出错，请联系管理员");
                 }
                 if (loginData.getErrorMessage() != null) {
                     logger.error("errorMessage = " + loginData.getErrorMessage());
@@ -85,7 +75,7 @@ public class UploadController {
                     return null;
                 }
                 if (loginData.getRole() != LoginData.LoginRole.Admin) {
-                    return new ResponseEntity<>("No rule to show this page", HttpStatus.BAD_REQUEST);
+                    return new ModelAndView("error", "message", "所在的用户没有权限查看此页面");
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -100,7 +90,6 @@ public class UploadController {
             Map<String, Object> root = buildFileTree(new File(uploadProperties.getRootPath()));
             ModelAndView uploadView = new ModelAndView("upload");
             uploadView.addObject("tree", root);
-            uploadView.addObject("blockSize", uploadProperties.getBlockSize());
             return uploadView;
         });
     }
@@ -119,10 +108,12 @@ public class UploadController {
 
     /*
      单任务：
-     环境：MBA 2015 1.6Ghz
-     文件大小：5.63G
-     无MD5用时：101s(446.Mbps)
-     加MD5用时：250s，扣除最后全文件校验25.6s后为224.4s(200Mbps)
+     环境：i3_4170+机械硬盘+dropZone+2M_cache+4.38G文件
+     Override模式
+     无MD5用时：111s(323Mbps)
+     加MD5用时：164s(218Mbps)
+     创建模式
+     加MD5用时：185s(193Mbps)
      */
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
     public Object uploadFile(MultipartHttpServletRequest request, HttpServletResponse response) {
@@ -130,19 +121,29 @@ public class UploadController {
             JSONObject object = new JSONObject();
             File destFile = null;
             try {
-                final MultipartFile file = request.getFile("data");
+                final MultipartFile file = request.getFile("file");
                 if (file == null || file.isEmpty()) {
                     object.put("error", "file could not be empty!");
                     object.put("errorCode", 1);
                     return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
                 }
-                final String filename = request.getParameter("fileName");
-                final String total = request.getParameter("total");
+                final String filename = file.getOriginalFilename();
                 final String relativePath = request.getParameter("relative");
-                final String md5 = request.getParameter("md5");
-                final String partMD5 = request.getParameter("partMD5");
-                final String index = request.getParameter("index");
-                final String blockSize = request.getParameter("blockSize");
+                final long fileSize = file.getSize();
+                String totalStr = request.getParameter("total");
+                Long total, offset, index;
+                if (totalStr != null) {
+                    total = Long.parseLong(request.getParameter("total"));
+                    offset = Long.parseLong(request.getParameter("offset"));
+                    index = Long.parseLong(request.getParameter("index"));
+                } else {
+                    //不是分块传输的情况
+                    total = 1L;
+                    offset = 0L;
+                    index = 0L;
+                }
+                final String allHash = request.getParameter("all");
+                final String hash = request.getParameter("hash");
 
                 //准备文件信息
                 final String uploadPath = uploadProperties.getRootPath() + "/" + relativePath;
@@ -157,11 +158,13 @@ public class UploadController {
 
                 //校验MD5
                 final InputStream inputStream = file.getInputStream();
-                if (!FileHash.getMD5(inputStream, null).equals(partMD5)) {
+                String part = FileHash.getMD5(inputStream, null);
+                if (!part.equals(hash)) {
                     inputStream.close();
                     object.put("error", "Validation failed, network error?");
                     object.put("errorCode", 5);
-                    return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
+                    logger.info("Validation failed, network error? index="+index);
+                    return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
                 }
 
                 //回到流的初始端
@@ -169,28 +172,31 @@ public class UploadController {
 
                 final String destFilename = uploadPath + "/" + filename;
                 destFile = new File(destFilename);
-                FileOperationQueue operationQueue = null;
-                if (index.equals("1")) {
-                    operationQueue = FileOperationQueue.createInstance(destFile, Long.parseLong(total), Long.parseLong(blockSize));
+                FileOperationQueue operationQueue;
+                if (index == 0) {
+                    operationQueue = FileOperationQueueManager.createInstance(destFile, total);
                 } else {
-                    operationQueue = FileOperationQueue.getInstance(destFile);
-                    if (operationQueue == null) {
-                        object.put("error", "internal queue error.");
-                        object.put("errorCode", 6);
-
-                        //删除文件，下次可以重来
-                        if (!destFile.delete()) {
-                            logger.warn("Delete file \""+destFilename+"\" failed?");
-                        }
-                        return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
-                    }
+                    operationQueue = FileOperationQueueManager.getInstance(destFile);
                 }
-                operationQueue.addItem(new FileItem(inputStream, file.getSize(), Long.parseLong(index)));
+                if (operationQueue == null) {
+                    inputStream.close();
+                    object.put("error", "internal queue error.");
+                    object.put("errorCode", 6);
 
-                if (index.equals(total)) {
+                    //删除文件，下次可以重来
+                    if (!destFile.delete()) {
+                        logger.warn("Delete file \""+destFilename+"\" failed?");
+                    }
+                    return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+
+                //之后的inputStream由queue对象内部负责关闭
+                operationQueue.addItem(new FileItem(inputStream, fileSize, index, offset));
+
+                if (index+1 == total) {
                     operationQueue.waitAll();
-                    if (!FileHash.getFileMD5(destFile).equals(md5)) {
-                        object.put("error", "Validation failed, network error?");
+                    if (!operationQueue.getMD5().equals(allHash)) {
+                        object.put("error", "network error or man in middle.");
                         object.put("errorCode", 7);
 
                         //删除文件，下次可以重来

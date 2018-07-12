@@ -17,7 +17,9 @@ public class LoginClient {
         final String requestQueueName = "login_queue";
         try {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("sessionId", sessionId);
+            if (sessionId != null) {
+                jsonObject.put("sessionId", sessionId);
+            }
             String response = rpcClient.call(requestQueueName, jsonObject.toString());
             logger.info("getLoginInfo() repsonse = " + response);
             return new LoginData(response);

@@ -8,10 +8,16 @@ public class FileItem {
     InputStream inputStream;
     Long size;
     Long currentPart;
+    Long offset;
 
-    public FileItem(InputStream inputStream, Long size, Long currentPart) {
+    public FileItem(InputStream inputStream, Long size, Long currentPart, Long offset) {
         this.inputStream = inputStream;
         this.size = size;
         this.currentPart = currentPart;
+        this.offset = offset;
+    }
+
+    public FileItem() {
+
     }
 }

@@ -7,7 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class UploadProperties {
     private String rootPath = "/Volumes/macfiles"; //路径结尾不带反斜杠
     private boolean authorization = false; //账号认证
-    private long blockSize = 10485760;
 
     public void setRootPath(String rootPath) {
         if (rootPath.length() == 0) {
@@ -29,16 +28,5 @@ public class UploadProperties {
 
     public boolean isAuthorization() {
         return authorization;
-    }
-
-    public void setBlockSize(long blockSize) {
-        if (blockSize < 10485760) {
-            throw new InvalidPropertyException(this.getClass(), "blockSize", "must be >= 10485760");
-        }
-        this.blockSize = blockSize;
-    }
-
-    public long getBlockSize() {
-        return blockSize;
     }
 }
