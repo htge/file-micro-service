@@ -1,26 +1,32 @@
 <html lang="cn">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+
     <title>上传文件到服务器</title>
 
-    <link rel="stylesheet" href="/up/css/jquery.treeview.css" />
-    <link rel="stylesheet" href="/up/css/dropzone.css" />
-    <link rel="stylesheet" href="/up/css/upload.css" />
-    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="/up/css/zTreeStyle.css">
+    <link rel="stylesheet" href="/up/css/dropzone.css">
+    <link rel="stylesheet" href="/up/css/upload.css">
+    <link rel="stylesheet" href="/up/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/up/css/bootstrap-theme.min.css">
 
-    <script src="/up/js/jquery-3.3.1.min.js"></script>
-    <script src="/up/js/jquery.treeview.js"></script>
-    <script src="/up/js/jquery.cookie.js"></script>
-    <script src="/up/js/spark-md5.min.js"></script>
-    <script src="/up/js/upload.js"></script>
-    <script src="/up/js/dropzone.js"></script>
+    <script type="text/javascript">
+        var zNodes = ${tree};
+    </script>
+    <script type="text/javascript" src="/up/js/jquery-1.4.4.min.js"></script>
+    <script type="text/javascript" src="/up/js/jquery.ztree.core.min.js"></script>
+    <script type="text/javascript" src="/up/js/jquery.cookie.js"></script>
+    <script type="text/javascript" src="/up/js/spark-md5.min.js"></script>
+    <script type="text/javascript" src="/up/js/upload.js"></script>
+    <script type="text/javascript" src="/up/js/dropzone.js"></script>
 </head>
-<body>
-    <div style="margin-left: 20px; margin-right:20px">
-        <div>
-            <h3>文件上传：</h3>
-            <div style="display: none">
+<body style="background-color: #eee">
+    <div id="page-layout">
+        <div id="page-inner-layout">
+            <h3>上传文件到服务器：</h3>
+            <div id="hidden">
                 <div id="template" class="file-row">
                     <!-- This is used as the file preview template -->
                     <div>
@@ -53,51 +59,32 @@
                 </div>
             </div>
             <div id="dropzone">
-                <span class="btn btn-success fileinput-button dz-clickable">
+                <button class="btn btn-success fileinput-button dz-clickable">
                     <i class="glyphicon glyphicon-plus"></i>
                     <span>添加文件...</span>
-                </span>
+                </button>
                 <button type="submit" class="btn btn-primary start">
                     <i class="glyphicon glyphicon-upload"></i>
-                    <span>Start upload</span>
+                    <span>开始上传</span>
                 </button>
                 <button type="reset" class="btn btn-warning cancel">
                     <i class="glyphicon glyphicon-ban-circle"></i>
-                    <span>Cancel upload</span>
+                    <span>取消上传</span>
                 </button>
                 <div class="table table-striped files" id="previews">
                 </div>
             </div>
-            <script>
-            </script>
-        </div>
-        <div>
-            <h4>选择一个相对目标路径：<input name="dest" id="dest" value="" readonly/><input type="hidden" name="md5" id="md5"/></h4>
-    <#macro child items subtitle>
-        <#assign hasSubTitle=(subtitle?length gt 0)/>
-        <#if hasSubTitle>
-    <ul>
-        <#else>
-    <ul id="browser" class="filetree">
-        </#if>
-        <#list items?keys as key>
-            <#if subtitle?length gt 0>
-                <#assign nextTitle=subtitle+"/"+key/>
-            <#else>
-                <#assign nextTitle=key/>
-            </#if>
-        <li class="closed"><span class="folder"><a href="#" onclick='$("#dest").attr("value", "${nextTitle}")'>${key}</a></span>
-        <#if items[key]??>
-            <@child items=items[key] subtitle=nextTitle></@child>
-        </#if>
-        </li>
-        </#list>
-    </ul>
-    </#macro>
-    <#if tree??>
-        <@child items=tree subtitle=""></@child>
-    </#if>
+            <hr/>
+
+            <h4>上传目标：</h4><input name="dest" id="dest" value="/" readonly placeholder="/"/><input type="hidden" name="md5" id="md5"/>
+            <h4>选择路径：</h4>
+            <div id="treeview">
+                <div class="zTreeDemoBackground left">
+                    <ul id="treeDemo" class="ztree"></ul>
+                </div>
+            </div>
         </div>
     </div>
+    <br/>
 </body>
 </html>

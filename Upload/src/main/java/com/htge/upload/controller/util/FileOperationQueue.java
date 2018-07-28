@@ -134,7 +134,7 @@ public class FileOperationQueue {
         public void run() {
             final int MBytes = 1048576;
             final byte[] buffer = new byte[MBytes];
-            final int allocFileSize = 32*MBytes;
+            final int allocFileSize = 64*MBytes;
             InputStream inputStream = null;
             long currentIndex = 0;
 
@@ -162,8 +162,8 @@ public class FileOperationQueue {
                     final long offset = fileItem.offset;
                     final long fileSize = fileItem.size;
                     final long fileLength = offset + fileSize;
+                    final long length = accessFile.length(); //文件旧的长度
 
-                    long length = accessFile.length();
                     //之前的文件太小，扩大
                     if (length < fileLength) {
                         double fileBlock = fileLength;
@@ -187,8 +187,8 @@ public class FileOperationQueue {
                     //最后一条记录
                     logger.info("index: " + fileItem.currentPart + " total: " + totalPart);
                     if (fileItem.currentPart + 1 == totalPart) {
-                        //之前的文件太大，缩小
-                        if (length > fileLength) {
+                        //文件太大，缩小
+                        if (accessFile.length() > fileLength) {
                             accessFile.setLength(fileLength);
                         }
 

@@ -105,12 +105,10 @@ public class FileMap {
 			//2. 权限，是否管理员
 			//getRequestedSessionId()要能拿到数据，需要在application.properties配置server.session.cookie.name
 			String sessionId = request.getRequestedSessionId();
-			if (sessionId != null) {
-//			    loginData = new LoginData("{\"role\":1,\"isValidSession\":true,\"rootPath\":\"http://192.168.51.20/auth/\",\"logoutPath\":\"http://192.168.51.20/auth/logout\",\"settingPath\":\"http://192.168.51.20/auth/setting\"}");
-				loginData = loginClient.getLoginInfo(sessionId);
-			}
+//			loginData = new LoginData("{\"role\":1,\"isValidSession\":true,\"rootPath\":\"http://192.168.51.20/auth/\",\"logoutPath\":\"http://192.168.51.20/auth/logout\",\"settingPath\":\"http://192.168.51.20/auth/setting\"}");
+			loginData = loginClient.getLoginInfo(sessionId);
 			if (loginData == null) {
-				return new ModelAndView("rpcerror");
+				return new ModelAndView("error", "message", "RPC服务器出错，请联系管理员");
 			}
 			if (loginData.getErrorMessage() != null) {
                 logger.error("errorMessage = "+loginData.getErrorMessage());
@@ -130,11 +128,11 @@ public class FileMap {
 			if (file.isDirectory()) {
 				return list(contextPath, basePath, loginData); //显示列表信息
 			} else { //文件夹不存在
-				return new ModelAndView("notfound");
+				return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
 			}
 		} else {
 			if (!file.exists()) { //文件不存在
-				return new ModelAndView("notfound");
+				return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
 			}
 		}
 		if (fileRange != null) {
@@ -211,7 +209,7 @@ public class FileMap {
 	private ModelAndView list(String contextPath, String basePath, LoginData loginData) {
 		File file = new File(basePath);
 		if (!file.exists()) {
-			return new ModelAndView("notfound");
+			return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
 		}
 		String basePathName = "", parentPathName = ""; //具体用途见底下的数据结构
 		if (!contextPath.equalsIgnoreCase(properties.getServerRoot())) { //首页不显示返回上一级

@@ -141,7 +141,12 @@ public class RecvUploadServer {
                                 logger.info("basicAck: consumerTag = "+envelope.getDeliveryTag());
                                 channel.basicAck(envelope.getDeliveryTag(), false);
                                 //无用的consumer，必须释放，否则可能导致服务资源占满
-                                channel.basicCancel(consumerTag);
+                                try {
+                                    channel.basicCancel(consumerTag);
+                                } catch (Exception e) {
+                                    //取消不了，忽略它
+                                    logger.warn("ignored: "+e.getMessage());
+                                }
                                 synchronized (waitObject) {
                                     waitObject.notifyAll();
                                 }

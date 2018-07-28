@@ -37,4 +37,9 @@
     <bean id="registerMap" class="com.htge.login.controller.Map.RegisterMap">
         <property name="userinfoDao" ref="userinfoDao"/>
     </bean>
+
+    <bean id="userListMap" class="com.htge.login.controller.Map.UserListMap">
+        <property name="properties" ref="properties"/>
+        <property name="userinfoDao" ref="userinfoDao"/>
+    </bean>
 </beans>

@@ -62,14 +62,9 @@ public class RegisterMap {
 				username = userData.getUsername();
 				String password = userData.getPassword();
 				String validation = userData.getValidation();
-				if (!username.matches("^[a-zA-Z0-9]+$")) {
+				if (!username.matches("^[a-zA-Z0-9]{4,20}$")) {
 					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("message", "用户名只能允许字母和数字");
-					return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
-				}
-				if (username.length() < 4 || username.length() > 20) {
-					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("message", "用户名长度必须在4～20之间");
+					jsonObject.put("message", "用户名只能允许字母和数字，长度在4~20之间");
 					return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
 				}
 				if (password == null || password.length() < 8 || password.length() > 32) {
@@ -79,7 +74,7 @@ public class RegisterMap {
 				}
 				if (!password.equals(validation)) {
 					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("message", "密码输入不匹配");
+					jsonObject.put("message", "两次输入的密码不匹配");
 					return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
 				}
 				if (LoginManager.getUserRule(subject, userinfoDao) == LoginManager.LoginRole.Admin) {

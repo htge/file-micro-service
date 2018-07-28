@@ -1,37 +1,121 @@
+"use strict";
+
+var w, wt, wf;
+
 $(document).ready(function(){
     initTreeView();
     initDropZone();
 });
 
 function initTreeView() {
-    // first example
-    $("#browser").treeview();
-
-    // second example
-    $("#navigation").treeview({
-        persist: "location",
-        collapsed: true,
-        unique: true
-    });
-
-    // third example
-    $("#red").treeview({
-        animated: "fast",
-        collapsed: true,
-        unique: true,
-        persist: "cookie",
-        toggle: function() {
-            window.console && console.log("%o was toggled", this);
+    var setting = {
+        view: {
+            dblClickExpand: dblClickExpand
+        },
+        data: {
+            simpleData: {
+                enable: true
+            }
+        },
+        callback: {
+            beforeExpand: beforeExpand,
+            onExpand: onExpand,
+            onClick: onTreeClick
         }
+    };
+
+    $(document).ready(function(){
+        //zNodes来源于FTL的定义
+        $.fn.zTree.init($("#treeDemo"), setting, zNodes);
     });
 
-    // fourth example
-    $("#black, #gray").treeview({
-        control: "#treecontrol",
-        persist: "cookie",
-        cookieId: "treeview-black"
-    });
-}
+    function onTreeClick(event, treeId, treeNode) {
+        if (treeNode) {
+            $("#dest").attr("value", treeNode.id);
+        }
+    }
+
+    function dblClickExpand(treeId, treeNode) {
+        return treeNode.level > 0;
+    }
+
+    var curExpandNode = null;
+    function beforeExpand(treeId, treeNode) {
+        var pNode = curExpandNode ? curExpandNode.getParentNode():null;
+        var treeNodeP = treeNode.parentTId ? treeNode.getParentNode():null;
+        var zTree = $.fn.zTree.getZTreeObj("treeDemo");
+        for(var i=0, l=!treeNodeP ? 0:treeNodeP.children.length; i<l; i++ ) {
+            if (treeNode !== treeNodeP.children[i]) {
+                zTree.expandNode(treeNodeP.children[i], false);
+            }
+        }
+        while (pNode) {
+            if (pNode === treeNode) {
+                break;
+            }
+            pNode = pNode.getParentNode();
+        }
+        if (!pNode) {
+            singlePath(treeNode);
+        }
+
+    }
+    function singlePath(newNode) {
+        if (newNode === curExpandNode) return;
+
+        var zTree = $.fn.zTree.getZTreeObj("treeDemo"),
+            rootNodes, tmpRoot, tmpTId, i, j, n;
+
+        if (!curExpandNode) {
+            tmpRoot = newNode;
+            while (tmpRoot) {
+                tmpTId = tmpRoot.tId;
+                tmpRoot = tmpRoot.getParentNode();
+            }
+            rootNodes = zTree.getNodes();
+            for (i=0, j=rootNodes.length; i<j; i++) {
+                n = rootNodes[i];
+                if (n.tId != tmpTId) {
+                    zTree.expandNode(n, false);
+                }
+            }
+        } else if (curExpandNode && curExpandNode.open) {
+            if (newNode.parentTId === curExpandNode.parentTId) {
+                zTree.expandNode(curExpandNode, false);
+            } else {
+                var newParents = [];
+                while (newNode) {
+                    newNode = newNode.getParentNode();
+                    if (newNode === curExpandNode) {
+                        newParents = null;
+                        break;
+                    } else if (newNode) {
+                        newParents.push(newNode);
+                    }
+                }
+                if (newParents!=null) {
+                    var oldNode = curExpandNode;
+                    var oldParents = [];
+                    while (oldNode) {
+                        oldNode = oldNode.getParentNode();
+                        if (oldNode) {
+                            oldParents.push(oldNode);
+                        }
+                    }
+                    if (newParents.length>0) {
+                        zTree.expandNode(oldParents[Math.abs(oldParents.length-newParents.length)-1], false);
+                    } else {
+                        zTree.expandNode(oldParents[oldParents.length-1], false);
+                    }
+                }
+            }
+        }
+        curExpandNode = newNode;
+    }
+
+    function onExpand(event, treeId, treeNode) {
+        curExpandNode = treeNode;
+    }}
 
 function initDropZone() {
     //上传进度相关
@@ -46,38 +130,87 @@ function initDropZone() {
             if (typeof(w) === "undefined") {
                 w = new Worker("/up/js/md5.js");
             }
+            if (typeof(wt) === "undefined") {
+                wt = new Worker("/up/js/md5Chunk.js");
+            }
+            if (typeof(wf) === "undefined") {
+                wf = new Worker("/up/js/fileReader.js");
+            }
+
             var uuid;
             if (chunk) {
                 uuid = chunk.file.upload.uuid;
             } else {
                 uuid = blob.upload.uuid;
             }
-            callbackMap[uuid] = callback;
+
             w.onmessage = function(e) {
-                callback = callbackMap[e.data.uuid];
-                if (callback) {
-                    callback(e.data);
-                } else {
-                    alert("could not get callback");
-                }
+                var json = callbackMap[e.data.uuid];
+                json.part = e.data.part;
+                json.count++;
+                checkCallback(json);
             };
+
+            wt.onmessage = function (e) {
+                var json = callbackMap[e.data.uuid];
+                json.total = e.data.total;
+                json.count++;
+                checkCallback(json);
+            };
+
+            function checkCallback(json) {
+                if (json.count === 2) {
+                    var callback = json.callback;
+                    if (callback) {
+                        callback({
+                            part: json.part,
+                            total: json.total
+                        });
+                    } else {
+                        alert("could not get callback");
+                    }
+                }
+            }
+
+            wf.onmessage = function (e) {
+                var arraybuffer = e.data.arraybuffer;
+                var uuid = e.data.uuid;
+                var chunkInfo = callbackMap[uuid].chunkInfo;
+
+                w.postMessage({
+                    arraybuffer: arraybuffer,
+                    uuid: uuid
+                });
+                wt.postMessage({
+                    arraybuffer: arraybuffer,
+                    chunkInfo: chunkInfo,
+                    uuid: uuid
+                });
+            };
+
+            //发送消息之前，存储临时信息
             var chunkInfo;
             if (chunk) {
                 chunkInfo = {
                     index: chunk.index,
-                    total: chunk.file.upload.totalChunkCount,
-                    uuid: uuid
+                    total: chunk.file.upload.totalChunkCount
                 };
             } else {
                 chunkInfo = {
                     index: 0,
-                    total: 1,
-                    uuid: uuid
+                    total: 1
                 };
             }
-            w.postMessage({
-                "chunk": chunkInfo,
-                "blob": blob
+
+            callbackMap[uuid] = {
+                callback: callback,
+                chunkInfo: chunkInfo,
+                count: 0
+            };
+
+            wf.postMessage({
+                uuid: uuid,
+                blob: blob
             });
         } else {
             alert("Browser not supported");
@@ -153,8 +286,3 @@ function initDropZone() {
     };
 }
 
-function getBufferMD5(buffer) {
-    var spark = new SparkMD5.ArrayBuffer();
-    spark.append(buffer);
-    return spark.end();
-}

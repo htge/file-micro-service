@@ -52,27 +52,28 @@ public class AuthRPCData implements RPCData {
 
     private JSONObject getLoginInfo(@NotNull JSONObject jsonObject) {
         JSONObject ret = new JSONObject();
-        if (!jsonObject.has("sessionId")) {
-            ret.put("error", "sessionId not found");
-            return ret;
+        Serializable sessionId = null;
+        if (jsonObject.has("sessionId")) {
+            sessionId = jsonObject.getString("sessionId");
         }
-        Serializable sessionId = jsonObject.getString("sessionId");
         String username = null;
         int role = 0;
         Boolean isValidSession;
         try {
-            SimpleSession session = (SimpleSession) sessionDao.readSession(sessionId);
-            if (session != null) {
-                //验证后，设置访问时间自动续期
-                session.validate();
-                session.setLastAccessTime(new Date());
-                sessionDao.update(session);
+            if (sessionId != null) {
+                SimpleSession session = (SimpleSession) sessionDao.readSession(sessionId);
+                if (session != null) {
+                    //验证后，设置访问时间自动续期
+                    session.validate();
+                    session.setLastAccessTime(new Date());
+                    sessionDao.update(session);
 
-                username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
-                if (username != null) {
-                    Userinfo userinfo = userinfoDao.findUser(username);
-                    if (userinfo != null) {
-                        role = userinfo.getRole();
+                    username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+                    if (username != null) {
+                        Userinfo userinfo = userinfoDao.findUser(username);
+                        if (userinfo != null) {
+                            role = userinfo.getRole();
+                        }
                     }
                 }
             }

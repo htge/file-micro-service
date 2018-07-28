@@ -246,6 +246,22 @@ public class UserinfoDao {
 		return null;
 	}
 
+	/* 适用于小批量查询 */
+	public Collection<Userinfo> getUsersExceptUser(String username, int begin, int limit) {
+		try (SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE)) {
+			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);
+			List<Userinfo> userinfos = mapper.selectExceptUser(username, (long)begin, (long)limit);
+			//立即同步到缓存
+			if (userItemCache != null) {
+				userItemCache.addUsersSync(userinfos);
+			}
+			return userinfos;
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
 	public Long getSize() {
 		try (SqlSession session = getSessionFactory().openSession(ExecutorType.REUSE)) {
 			UserinfoMapper mapper = session.getMapper(UserinfoMapper.class);

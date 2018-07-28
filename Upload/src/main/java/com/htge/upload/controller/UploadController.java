@@ -41,6 +41,27 @@ public class UploadController {
     private UploadProperties uploadProperties;
 
     @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
+    private void buildFileList(File dir, String pid, ArrayList<JSONObject> arrayList) {
+        File[] dirs = dir.listFiles((File pathname) -> {
+            return pathname.isDirectory();
+        });
+        if (dirs != null) {
+            for (File subDir : dirs) {
+                //节点
+                String name = subDir.getName();
+                String id = pid+name+"/";
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("id", id);
+                jsonObject.put("pId", pid);
+                jsonObject.put("name", name);
+                arrayList.add(jsonObject);
+
+                buildFileList(subDir, id, arrayList);
+            }
+        }
+    }
+
+    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
     private Map<String, Object> buildFileTree(File dir) {
         File[] dirs = dir.listFiles((File pathname) -> {
             return pathname.isDirectory();
@@ -63,7 +84,7 @@ public class UploadController {
                 String sessionId = request.getRequestedSessionId();
                 loginData = loginClient.getLoginInfo(sessionId);
                 if (loginData == null) {
-                    return new ModelAndView("error", "message", "RPC服务器出错，请联系管理员");
+                    return new ModelAndView("error", "errorMessage", "RPC服务器出错，请联系管理员");
                 }
                 if (loginData.getErrorMessage() != null) {
                     logger.error("errorMessage = " + loginData.getErrorMessage());
@@ -75,7 +96,7 @@ public class UploadController {
                     return null;
                 }
                 if (loginData.getRole() != LoginData.LoginRole.Admin) {
-                    return new ModelAndView("error", "message", "所在的用户没有权限查看此页面");
+                    return new ModelAndView("error", "errorMessage", "所在的用户没有权限查看此页面");
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -87,33 +108,23 @@ public class UploadController {
     @RequestMapping(value = "/", method = RequestMethod.GET)
     public Object uploadPage(HttpServletRequest request, HttpServletResponse response) {
         return getLoginStatus(request, response, () -> {
-            Map<String, Object> root = buildFileTree(new File(uploadProperties.getRootPath()));
+            ArrayList<JSONObject> arrayList = new ArrayList<>();
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("id", "/");
+            jsonObject.put("pId", 0);
+            jsonObject.put("name", "/");
+            jsonObject.put("open", true);
+            arrayList.add(jsonObject);
+            buildFileList(new File(uploadProperties.getRootPath()), "/", arrayList);
+            String arrayStr = arrayList.toString();
             ModelAndView uploadView = new ModelAndView("upload");
-            uploadView.addObject("tree", root);
+            uploadView.addObject("tree", arrayStr);
             return uploadView;
         });
     }
 
-    @RequestMapping(value = "/upload/check", method = RequestMethod.GET)
-    public Object checkFileExists(HttpServletRequest request, HttpServletResponse response) {
-        return getLoginStatus(request, response, () -> {
-            String relativeFile = request.getParameter("file");
-            File serverFile = new File(uploadProperties.getRootPath() + "/" + relativeFile);
-            if (serverFile.exists()) {
-                return new ResponseEntity<>("{\"result\": 1}", HttpStatus.OK);
-            }
-            return new ResponseEntity<>("{\"result\": 0}", HttpStatus.OK);
-        });
-    }
-
     /*
-     单任务：
-     环境：i3_4170+机械硬盘+dropZone+2M_cache+4.38G文件
-     Override模式
-     无MD5用时：111s(323Mbps)
-     加MD5用时：164s(218Mbps)
-     创建模式
-     加MD5用时：185s(193Mbps)
+     主要的压力瓶颈在前端的JS和服务器硬盘
      */
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
     public Object uploadFile(MultipartHttpServletRequest request, HttpServletResponse response) {
@@ -146,14 +157,12 @@ public class UploadController {
                 final String hash = request.getParameter("hash");
 
                 //准备文件信息
-                final String uploadPath = uploadProperties.getRootPath() + "/" + relativePath;
+                final String uploadPath = uploadProperties.getRootPath() + relativePath;
                 final File dir = new File(uploadPath);
                 if (!dir.exists()) {
-                    if (!dir.mkdirs()) {
-                        object.put("error", "dir could not be created!");
-                        object.put("errorCode", 2);
-                        return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
-                    }
+                    object.put("error", "dir was not exist!");
+                    object.put("errorCode", 2);
+                    return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
                 }
 
                 //校验MD5

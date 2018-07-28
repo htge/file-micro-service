@@ -1,7 +1,12 @@
 package com.htge.upload.config;
 
+import org.springframework.boot.context.embedded.ConfigurableEmbeddedServletContainer;
+import org.springframework.boot.context.embedded.EmbeddedServletContainerCustomizer;
+import org.springframework.boot.web.servlet.ErrorPage;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -23,5 +28,19 @@ public class WebConfig extends WebMvcConfigurerAdapter {
                 .addResourceLocations("classpath:/web/css/");
         registry.addResourceHandler("/up/js/**")
                 .addResourceLocations("classpath:/web/js/");
+        registry.addResourceHandler("/up/fonts/**")
+                .addResourceLocations("classpath:/web/fonts/");
+    }
+
+    @Bean
+    public EmbeddedServletContainerCustomizer containerCustomizer(){
+        return new RedirectCustomizer();
+    }
+
+    private static class RedirectCustomizer implements EmbeddedServletContainerCustomizer {
+        @Override
+        public void customize(ConfigurableEmbeddedServletContainer configurableEmbeddedServletContainer) {
+            configurableEmbeddedServletContainer.addErrorPages(new ErrorPage(HttpStatus.BAD_REQUEST, "/up/"));
+        }
     }
 }

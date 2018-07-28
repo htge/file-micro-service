@@ -66,9 +66,8 @@ public interface UserinfoMapper {
      * @mbg.generated Wed May 30 08:55:44 CST 2018
      */
     @Select({
-//            "SELECT * FROM USERINFO WHERE id >= ( SELECT id FROM USERINFO ORDER BY id LIMIT #{arg0,jdbcType=INTEGER}, 1 ) LIMIT #{arg1,jdbcType=INTEGER}"
         "SELECT * FROM USERINFO INNER JOIN",
-        "(SELECT id FROM USERINFO order by id LIMIT #{arg0,jdbcType=INTEGER}, #{arg1,jdbcType=INTEGER}) AS T",
+        "(SELECT id FROM USERINFO ORDER BY id LIMIT #{arg0,jdbcType=INTEGER}, #{arg1,jdbcType=INTEGER}) AS T",
         "USING (id)"
     })
     @Results({
@@ -78,6 +77,20 @@ public interface UserinfoMapper {
         @Result(column="role", property="role", jdbcType=JdbcType.INTEGER)
     })
     List<Userinfo> select(Long begin, Long limit);
+
+    @Select({
+            "SELECT * FROM USERINFO INNER JOIN",
+            "(SELECT id FROM USERINFO WHERE username != #{arg0,jdbcType=VARCHAR} ",
+            "ORDER BY id LIMIT #{arg1,jdbcType=INTEGER}, #{arg2,jdbcType=INTEGER}) AS T",
+            "USING (id)"
+    })
+    @Results({
+            @Result(column="id", property="id", jdbcType=JdbcType.INTEGER, id=true),
+            @Result(column="username", property="username", jdbcType=JdbcType.VARCHAR),
+            @Result(column="userdata", property="userdata", jdbcType=JdbcType.VARCHAR),
+            @Result(column="role", property="role", jdbcType=JdbcType.INTEGER)
+    })
+    List<Userinfo> selectExceptUser(String username, Long begin, Long limit);
 
     @Select({
         "SELECT * FROM USERINFO INNER JOIN",

@@ -73,6 +73,22 @@ div.table .file-row:nth-child(odd) {
 #previews .file-row.dz-success .delete {
     display: block;
 }
+#treeview {
+    border: 1px solid #a9a9a9;
+    background: #ffffff;
+}
+#page-layout {
+    margin-left:auto; margin-right:auto; max-width: 640px;
+}
+#page-inner-layout {
+    margin-left: 10px; margin-right: 10px;
+}
+#dest {
+    width: 100%;
+}
+#hidden {
+    display: none;
+}
 
-
-
+.ztree li span.button.switch.level0 {visibility:hidden; width:1px;}
+.ztree li ul.level0 {padding:0; background:none;}
