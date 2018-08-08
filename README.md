@@ -12,9 +12,11 @@
 
 ## 配置的属性（标准Spring Framework提供的配置除外，需要项目自定义的配置）
 
+login.root-path=从文件服务返回的路径
+
 login.next-root=登录成功后跳转的地址
 
-login.root-path=从文件服务返回的路径
+login.upload-root=从设置页面跳转到上传服务器的路径
 
 login.cache-enabled=启动时缓存数据库的记录
 
@@ -32,7 +34,9 @@ file.authorization=是否包含登录服务
 
 file.watcher=是否开启watcher组件，用于跟踪一小段间隔检测本地文件的变化情况
 
-upload.xxx定义后续补充
+upload.root-path=上传的本地根目录
+
+upload.authorization=是否包含登录服务
 
 ## 登录服务访问的路径示例
 

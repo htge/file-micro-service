@@ -1,12 +1,7 @@
 "use strict";
-var rsaPublicKey;
-
-function setRsaPublicKey(key) {
-    rsaPublicKey = key;
-}
 
 function showErrorMessage(message) {
-    var error = $(".invalid-feedback");
+    const error = $(".invalid-feedback");
     error.html(message);
     error.css("display", message?"block":"none");
 }
@@ -18,10 +13,13 @@ function checkErrorMessage() {
 }
 
 function inputCheck() {
+    if (!checkPassword()) {
+        return false;
+    }
     if (!checkUsername()) {
         return false;
     }
-    if (!checkPassword()) {
+    if (!checkNewPassword()) {
         return false;
     }
     if (!checkValidation()) {
@@ -31,7 +29,7 @@ function inputCheck() {
 }
 
 function checkUsername() {
-    var username = $("#username");
+    const username = $("#username");
     if (!username.val()) {
         username.addClass("is-invalid");
         showErrorMessage("请输入用户名");
@@ -48,7 +46,24 @@ function checkUsername() {
 }
 
 function checkPassword() {
-    var password = $("#password");
+    const password = $("#password");
+    if (!password.val()) {
+        password.addClass("is-invalid");
+        showErrorMessage("请输入密码");
+        return false;
+    }
+    if (password.val().length < 8 || password.val().length > 32) {
+        password.addClass("is-invalid");
+        showErrorMessage("密码长度只能在8~32之间");
+        return false;
+    }
+    password.addClass("is-valid");
+    checkErrorMessage();
+    return true;
+}
+
+function checkNewPassword() {
+    const password = $("#newPassword");
     if (!password.val()) {
         password.addClass("is-invalid");
         showErrorMessage("请输入密码");
@@ -65,8 +80,8 @@ function checkPassword() {
 }
 
 function checkValidation() {
-    var password = $("#password");
-    var validation = $("#validation");
+    const password = $("#newPassword");
+    const validation = $("#validation");
     if (!validation.val()) {
         validation.addClass("is-invalid");
         showErrorMessage("请输入确认密码");
@@ -83,9 +98,10 @@ function checkValidation() {
 }
 
 $(document).ready(function () {
-    var username = $("#username");
-    var password = $("#password");
-    var validation = $("#validation");
+    const password = $("#password");
+    const username = $("#username");
+    const newPassword = $("#newPassword");
+    const validation = $("#validation");
 
     username.focusin(function () {
         $(this).removeClass("is-invalid");
@@ -117,21 +133,24 @@ $(document).ready(function () {
             return false;
         }
 
-        var password = randomString(16);
-        var rsa = new RSAKey();
-        rsa.setPublic(rsaPublicKey, "10001");
-        var encryptedKey = rsa.encrypt(password);
+        const password = randomString(16);
+        const rsa = new RSAKey();
+        rsa.setPublic($("#rsaPub").attr("value"), "10001");
+        const encryptedKey = rsa.encrypt(password);
 
-        var data = {
-            "username": $("#username").val(),
+        const data = {
             "password": $("#password").val(),
+            "username": $("#username").val(),
+            "newPassword": $("#newPassword").val(),
             "validation": $("#validation").val(),
-            "role": $("#role:checked").val()
+            "role": $("#role:checked").val(),
+            "timestamp": new Date().getTime(),
+            "uuid": $("#uuid").attr("value")
         };
-        var content = JSON.stringify(data);
+        const content = JSON.stringify(data);
 
-        var ukey = CryptoJS.enc.Utf8.parse(password);
-        var encryptedData = CryptoJS.AES.encrypt(content, ukey, {
+        const ukey = CryptoJS.enc.Utf8.parse(password);
+        const encryptedData = CryptoJS.AES.encrypt(content, ukey, {
             mode: CryptoJS.mode.ECB,
             padding: CryptoJS.pad.Pkcs7
         });
@@ -144,7 +163,7 @@ $(document).ready(function () {
             }
         }).fail(function(msg) {
             try {
-                var json = JSON.parse(msg.responseText);
+                const json = JSON.parse(msg.responseText);
                 if (json.message) {
                     showErrorMessage(htmlEncode(json.message));
                 } else {
@@ -153,7 +172,7 @@ $(document).ready(function () {
             } catch (e) {
                 location.reload(true);
             }
-        }).done(function(msg) {
+        }).done(function() {
             alert("操作成功完成");
             window.location.href = "/auth/setting"
         });

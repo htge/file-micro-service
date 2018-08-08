@@ -13,13 +13,12 @@ public class LoginClient {
         this.rpcClient = rpcClient;
     }
 
-    public LoginData getLoginInfo(String sessionId) {
+    public LoginData getLoginInfo(String sessionId, String redirectPath) {
         final String requestQueueName = "login_queue";
         try {
             JSONObject jsonObject = new JSONObject();
-            if (sessionId != null) {
-                jsonObject.put("sessionId", sessionId);
-            }
+            jsonObject.put("sessionId", sessionId);
+            jsonObject.put("redirectPath", redirectPath);
             String response = rpcClient.call(requestQueueName, jsonObject.toString());
             logger.info("getLoginInfo() repsonse = " + response);
             return new LoginData(response);

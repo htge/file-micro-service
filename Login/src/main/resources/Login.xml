@@ -12,34 +12,50 @@
 
     <bean id="properties" class="com.htge.login.config.LoginProperties"/>
 
+    <bean id="loginManager" class="com.htge.login.util.LoginManager">
+        <property name="simpleCookie" ref="simpleCookie"/>
+        <property name="userinfoDao" ref="userinfoDao"/>
+    </bean>
+
+    <bean class="com.htge.login.config.WebConfig">
+        <property name="taskExecutor" ref="threadPoolTaskExecutor"/>
+    </bean>
+
     <bean class="com.htge.login.boot.ApplicationStartup">
         <property name="properties" ref="properties"/>
         <property name="userinfoDao" ref="userinfoDao"/>
     </bean>
 
-    <bean id="loginMap" class="com.htge.login.controller.Map.LoginMap">
+    <bean id="changeMap" class="com.htge.login.controller.ChangeController">
+        <property name="userinfoDao" ref="userinfoDao"/>
+        <property name="loginManager" ref="loginManager"/>
+    </bean>
+
+    <bean id="deleteMap" class="com.htge.login.controller.DeleteController">
+        <property name="userinfoDao" ref="userinfoDao"/>
+        <property name="loginManager" ref="loginManager"/>
+    </bean>
+
+    <bean id="loginMap" class="com.htge.login.controller.LoginController">
+        <property name="loginManager" ref="loginManager"/>
         <property name="properties" ref="properties"/>
     </bean>
 
-    <bean id="settingMap" class="com.htge.login.controller.Map.SettingMap">
+    <bean id="registerMap" class="com.htge.login.controller.RegisterController">
+        <property name="userinfoDao" ref="userinfoDao"/>
+        <property name="loginManager" ref="loginManager"/>
+    </bean>
+
+    <bean id="settingMap" class="com.htge.login.controller.SettingController">
+        <property name="userinfoDao" ref="userinfoDao"/>
         <property name="properties" ref="properties"/>
+    </bean>
+
+    <bean id="userListMap" class="com.htge.login.controller.UserListController">
         <property name="userinfoDao" ref="userinfoDao"/>
     </bean>
 
-    <bean id="deleteMap" class="com.htge.login.controller.Map.DeleteMap">
-        <property name="userinfoDao" ref="userinfoDao"/>
-    </bean>
-
-    <bean id="changeMap" class="com.htge.login.controller.Map.ChangeMap">
-        <property name="userinfoDao" ref="userinfoDao"/>
-    </bean>
-
-    <bean id="registerMap" class="com.htge.login.controller.Map.RegisterMap">
-        <property name="userinfoDao" ref="userinfoDao"/>
-    </bean>
-
-    <bean id="userListMap" class="com.htge.login.controller.Map.UserListMap">
-        <property name="properties" ref="properties"/>
-        <property name="userinfoDao" ref="userinfoDao"/>
+    <bean class="com.htge.login.controller.LogoutController">
+        <property name="loginManager" ref="loginManager"/>
     </bean>
 </beans>

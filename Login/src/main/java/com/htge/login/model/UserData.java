@@ -17,6 +17,8 @@ public class UserData {
 	private String encryptedData;
 	private String encryptedKey;
 	private String newPassword;
+	private long timestamp;
+	private String uuid;
 
 	public String getUsername() {
 		return this.username;
@@ -40,6 +42,14 @@ public class UserData {
 	}
 
 	public String getNewPassword() { return newPassword; }
+
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	public String getUuid() {
+		return uuid;
+	}
 
 	public void setUsername(String username) {
 		this.username = username;
@@ -73,24 +83,26 @@ public class UserData {
 
 	public void decryptDatas(PrivateKey privateKey) {
 		try {
-			byte[] bytes = new BigInteger(encryptedKey, 16).toByteArray();
-			if (bytes.length % 2 == 1 && bytes[0] == 0) { //转换的时候多转了一位
-				bytes = Arrays.copyOfRange(bytes, 1, bytes.length);
-			}
-			byte[] decrypted = Crypto.decryptRSA(bytes, privateKey);
-			if (decrypted != null) {
+			byte[] decrypted = Crypto.decryptRSA(encryptedKey, privateKey);
+			if (decrypted != null && decrypted.length > 0) {
 				String decryptKey = new String(decrypted, "UTF-8");
 				String loginInfo = Crypto.decryptFromPage(encryptedData, decryptKey);
 				JSONObject jsonObject = JSONObject.fromObject(loginInfo);
-				username = (String) jsonObject.get("username");
-				password = (String) jsonObject.get("password");
-				if (jsonObject.containsKey("newPassword")) { //修改密码的信息
-					newPassword = (String) jsonObject.get("newPassword");
-					validation = (String) jsonObject.get("validation");
-				} else if (jsonObject.containsKey("validation")) { //注册用到的信息
-					validation = (String) jsonObject.get("validation");
-					role = (String) jsonObject.get("role");
+				if (jsonObject.containsKey("username")) {
+					username = jsonObject.getString("username");
 				}
+				password = jsonObject.getString("password");
+				if (jsonObject.containsKey("newPassword")) {
+					newPassword = jsonObject.getString("newPassword");
+				}
+				if (jsonObject.containsKey("validation")) {
+					validation = jsonObject.getString("validation");
+				}
+				if (jsonObject.containsKey("role")) {
+					role = jsonObject.getString("role");
+				}
+				timestamp = jsonObject.getLong("timestamp");
+				uuid = jsonObject.getString("uuid");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

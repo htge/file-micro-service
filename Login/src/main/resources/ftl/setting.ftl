@@ -2,22 +2,23 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=1, user-scalable=yes">
     <meta name="format-detection" content="telephone=no" />
 
-    <link rel="stylesheet" href="${Path}/auth/css/common.css">
-    <link rel="stylesheet" href="${Path}/auth/css/bootstrap.min.css">
-    <link rel="stylesheet" href="${Path}/auth/css/bootstrap-grid.min.css">
-    <link rel="stylesheet" href="${Path}/auth/css/bootstrap-reboot.min.css">
-    <link rel="stylesheet" href="${Path}/auth/css/jquery.dataTables.min.css" />
+    <link rel="stylesheet" type="text/css" href="/auth/css/common.css">
+    <link rel="stylesheet" type="text/css" href="/auth/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="/auth/css/bootstrap-grid.min.css">
+    <link rel="stylesheet" type="text/css" href="/auth/css/bootstrap-reboot.min.css">
+    <link rel="stylesheet" type="text/css" href="/auth/css/dataTables.bootstrap4.min.css">
 
-    <script type="text/javascript" src="${Path}/auth/js/jquery-3.3.1.min.js"></script>
-    <script type="text/javascript" src="${Path}/auth/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="${Path}/auth/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" src="${Path}/auth/js/setting.js"></script>
+    <script type="text/javascript" language="javascript" src="/auth/js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" language="javascript" src="/auth/js/bootstrap.min.js"></script>
+    <script type="text/javascript" language="javascript" src="/auth/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" language="javascript" src="/auth/js/dataTables.bootstrap4.min.js"></script>
+    <script type="text/javascript" language="javascript" src="/auth/js/setting.js"></script>
     <title>用户信息管理</title>
 </head>
-<body>
+<body style="min-width: 640px;">
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <a class="navbar-brand mb-0 h1" href="#">${username}，${role}</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,11 +32,15 @@
             </li>
             <li class="nav-item">
                 <a id="changepwd" class="nav-link" href="#">修改密码</a>
-            </li><#if role=='管理员'>
-                <li class="nav-item">
+            </li>
+                <#if role=='管理员'><li class="nav-item">
                     <a id="register" class="nav-link" href="#">注册新账户</a>
+                </li>
+                <#if uploadPath?exists><li class="nav-item">
+                    <a id="upload" class="nav-link" href="#">上传文件</a>
+                    <input id="uploadUrl" type="hidden" value="${uploadPath}"/>
                 </li></#if>
-            <li class="nav-item">
+            </#if><li class="nav-item">
                 <a id="logoff" class="nav-link" href="#">注销</a>
             </li>
         </ul>
@@ -45,7 +50,7 @@
 <div class="userList">
     <div class="col_2_3_right">
         <div class="index_viewport">
-            <table id="userList" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <table id="userList" class="table table-striped table-bordered" width="100%">
                 <thead>
                 <tr>
                     <th width="40%">用户名</th>

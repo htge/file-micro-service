@@ -26,8 +26,9 @@ login:
   #确保访问的域名或者ip相同，否则session信息会无法传递
   next-root: http://192.168.51.20/dl/
   root-path: http://192.168.51.20/auth/
+  upload-root: http://192.168.51.32:8082/up/
   #缓存用户记录设置
-  cache-enabled: false
+  cache-enabled: true
   #cache-total: 2000000
   #cache-unit: 10000
   session-timeout: 7200000 #2小时空闲
@@ -40,6 +41,7 @@ file:
   #检测文件变更
   watcher: false
 upload:
-  authorization: false
-  #最大缓存大小10MB，可配合FTL调整
-  blockSize: 10485760
+  #上传的本地根目录
+  root-path: 'D:/安装'
+  #是否包含登录服务
+  authorization: true

@@ -88,26 +88,26 @@ public class RedisTest {
             Thread.sleep(500);
         } while (completed != total);
 
-        //用户的登录剔除逻辑
-        SimpleSession session = new SimpleSession();
-        session.setId(generator.generateId(session));
-        session.setTimeout(120);
-        session.setAttribute(LoginManager.SESSION_USER_KEY, "123"); //假设用户名是123
-        sessionDB.update(session);
-
-        SimpleSession session2 = new SimpleSession();
-        session2.setId(generator.generateId(session2));
-        session2.setTimeout(120);
-        session2.setAttribute(LoginManager.SESSION_USER_KEY, "123"); //假设用户名是123
-        sessionDB.update(session2);
-
-        Session oldSession = sessionDB.get(session.getId());
-        Session newSession = sessionDB.get(session2.getId());
-
-        Assert.assertTrue(oldSession != null);
-        Assert.assertTrue(oldSession.getAttribute(LoginManager.SESSION_USER_KEY) == null);
-        Assert.assertTrue(newSession != null);
-        Assert.assertTrue(newSession.getAttribute(LoginManager.SESSION_USER_KEY).equals("123"));
+        //用户的登录剔除逻辑（已经集成到Shiro的内部逻辑）
+//        SimpleSession session = new SimpleSession();
+//        session.setId(generator.generateId(session));
+//        session.setTimeout(120);
+//        session.setAttribute(LoginManager.SESSION_USER_KEY, "123"); //假设用户名是123
+//        sessionDB.update(session);
+//
+//        SimpleSession session2 = new SimpleSession();
+//        session2.setId(generator.generateId(session2));
+//        session2.setTimeout(120);
+//        session2.setAttribute(LoginManager.SESSION_USER_KEY, "123"); //假设用户名是123
+//        sessionDB.update(session2);
+//
+//        Session oldSession = sessionDB.get(session.getId());
+//        Session newSession = sessionDB.get(session2.getId());
+//
+//        Assert.assertTrue(oldSession != null);
+//        Assert.assertTrue(oldSession.getAttribute(LoginManager.SESSION_USER_KEY) == null);
+//        Assert.assertTrue(newSession != null);
+//        Assert.assertTrue(newSession.getAttribute(LoginManager.SESSION_USER_KEY).equals("123"));
 
         stopWatch.stop();
 

@@ -8,7 +8,6 @@ public class LoginData {
     private int role;
     private String rootPath;
     private String settingPath;
-    private String logoutPath;
     private String errorMessage;
 
     @SuppressWarnings("unused")
@@ -26,10 +25,7 @@ public class LoginData {
             isValidSession = jsonObject.getBoolean("isValidSession");
             rootPath = jsonObject.getString("rootPath");
             role = jsonObject.getInt("role");
-            if (role == LoginRole.Admin) {
-                settingPath = jsonObject.getString("settingPath");
-            }
-            logoutPath = jsonObject.getString("logoutPath");
+            settingPath = jsonObject.getString("settingPath");
         }
     }
 
@@ -47,10 +43,6 @@ public class LoginData {
 
     public int getRole() {
         return role;
-    }
-
-    public String getLogoutPath() {
-        return logoutPath;
     }
 
     public String getErrorMessage() {

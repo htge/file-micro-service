@@ -12,6 +12,7 @@ $(document).ready(function() {
         ajax: "/auth/userList",
         searching: false,
         ordering: false,
+        lengthMenu: [ 30, 60, 120, 240 ],
         columns: [
             {
                 class: "title",
@@ -50,5 +51,8 @@ $(document).ready(function() {
     });
     $('#logoff').on("click", function () {
         window.location.href = 'logout';
+    });
+    $('#upload').on("click", function () {
+        window.location.href = $("#uploadUrl").attr("value");
     });
 });

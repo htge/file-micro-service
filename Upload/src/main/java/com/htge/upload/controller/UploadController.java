@@ -12,33 +12,35 @@ import net.sf.json.JSONObject;
 import org.jboss.logging.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.net.URLDecoder;
 import java.util.*;
 
-@Controller
 @RequestMapping("/up")
 public class UploadController {
-
     final private Logger logger = Logger.getLogger(UploadController.class);
 
-    @Resource(name = "uploadClient")
     private UploadClient uploadClient;
-
-    @Resource(name = "loginClient")
     private LoginClient loginClient;
-
-    @Resource(name = "uploadProperties")
     private UploadProperties uploadProperties;
+
+    public void setUploadClient(UploadClient uploadClient) {
+        this.uploadClient = uploadClient;
+    }
+    public void setLoginClient(LoginClient loginClient) {
+        this.loginClient = loginClient;
+    }
+    public void setUploadProperties(UploadProperties uploadProperties) {
+        this.uploadProperties = uploadProperties;
+    }
 
     @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
     private void buildFileList(File dir, String pid, ArrayList<JSONObject> arrayList) {
@@ -61,7 +63,7 @@ public class UploadController {
         }
     }
 
-    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
+    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr", "unused"})
     private Map<String, Object> buildFileTree(File dir) {
         File[] dirs = dir.listFiles((File pathname) -> {
             return pathname.isDirectory();
@@ -81,8 +83,19 @@ public class UploadController {
         if (uploadProperties.isAuthorization()) {
             LoginData loginData;
             try {
+                String contextPath = URLDecoder.decode(request.getRequestURI(), "UTF-8");
                 String sessionId = request.getRequestedSessionId();
-                loginData = loginClient.getLoginInfo(sessionId);
+                if (sessionId == null) {
+                    sessionId = request.getSession().getId();
+                }
+                String requestPath;
+                int port = request.getServerPort();
+                if (port != 80 && port != 443) {
+                    requestPath = String.format("//%s:%s%s", request.getServerName(), request.getServerPort(), contextPath);
+                } else {
+                    requestPath = String.format("//%s%s", request.getServerName(), contextPath);
+                }
+                loginData = loginClient.getLoginInfo(sessionId, requestPath);
                 if (loginData == null) {
                     return new ModelAndView("error", "errorMessage", "RPC服务器出错，请联系管理员");
                 }

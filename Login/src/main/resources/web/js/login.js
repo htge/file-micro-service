@@ -1,13 +1,8 @@
 "use strict";
-var rsaPublicKey;
-var usernameKey = "file.login.username";
-
-function setRsaPublicKey(key) {
-    rsaPublicKey = key;
-}
+const usernameKey = "file.login.username";
 
 function showErrorMessage(message) {
-    var error = $(".invalid-feedback");
+    const error = $(".invalid-feedback");
     error.html(message);
     error.css("display", message?"block":"none");
 }
@@ -29,7 +24,7 @@ function inputCheck() {
 }
 
 function checkUsername() {
-    var username = $("#username");
+    const username = $("#username");
     if (!username.val()) {
         username.addClass("is-invalid");
         showErrorMessage("请输入用户名");
@@ -41,7 +36,7 @@ function checkUsername() {
 }
 
 function checkPassword() {
-    var password = $("#password");
+    const password = $("#password");
     if (!password.val()) {
         password.addClass("is-invalid");
         showErrorMessage("请输入密码");
@@ -53,8 +48,8 @@ function checkPassword() {
 }
 
 $(document).ready(function () {
-    var username = $("#username");
-    var password = $("#password");
+    const username = $("#username");
+    const password = $("#password");
 
     username.prop("value", $.cookie(usernameKey))
 
@@ -81,23 +76,25 @@ $(document).ready(function () {
             return false;
         }
 
-        var randomPassword = randomString(16);
-        var rsa = new RSAKey();
-        rsa.setPublic(rsaPublicKey, "10001");
-        var encryptedKey = rsa.encrypt(randomPassword);
-        var username = $("#username").val();
-        var password = $("#password").val();
+        const randomPassword = randomString(16);
+        const rsa = new RSAKey();
+        rsa.setPublic($("#rsaPub").attr("value"), "10001");
+        const encryptedKey = rsa.encrypt(randomPassword);
+        const username = $("#username").val();
+        const password = $("#password").val();
 
         $.cookie(usernameKey, username);
 
-        var data = {
+        const data = {
             "username": username,
-            "password": password
+            "password": password,
+            "timestamp": new Date().getTime(),
+            "uuid": $("#uuid").attr("value")
         };
-        var content = JSON.stringify(data);
+        const content = JSON.stringify(data);
 
-        var ukey = CryptoJS.enc.Utf8.parse(randomPassword);
-        var encryptedData = CryptoJS.AES.encrypt(content, ukey, {
+        const ukey = CryptoJS.enc.Utf8.parse(randomPassword);
+        const encryptedData = CryptoJS.AES.encrypt(content, ukey, {
             mode: CryptoJS.mode.ECB,
             padding: CryptoJS.pad.Pkcs7
         });
@@ -110,7 +107,7 @@ $(document).ready(function () {
             }
         }).fail(function(msg) {
             try {
-                var json = JSON.parse(msg.responseText);
+                const json = JSON.parse(msg.responseText);
                 if (json.message) {
                     showErrorMessage(htmlEncode(json.message));
                 } else {
@@ -120,7 +117,11 @@ $(document).ready(function () {
                 location.reload(true);
             }
         }).done(function(msg) {
-            window.location.href = "/auth/"
+            if (msg.url) {
+                window.location.href = msg.url;
+            } else {
+                window.location.href = "/auth/";
+            }
         });
         return false;
     }

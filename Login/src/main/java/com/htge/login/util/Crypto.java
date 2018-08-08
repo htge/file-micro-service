@@ -1,6 +1,9 @@
 package com.htge.login.util;
 
+import java.math.BigInteger;
 import java.security.*;
+import java.util.Arrays;
+import java.util.Scanner;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.locks.Lock;
@@ -89,7 +92,7 @@ public class Crypto {
 	static private final Provider provider = new BouncyCastleProvider();
 	static private KeyPair cachedKeyPair = generateRSAKeyPairs();
 	static private final Lock lock = new ReentrantLock();
-	static private final int KEYPAIR_TIMEOUT = 300000; //因为RSA信息产生的时间长，5分钟换一次
+	static private final int KEYPAIR_TIMEOUT = 1800000; //因为RSA信息产生的时间长，30分钟换一次
 	static private final int KEY_SIZE = 3072;
 
 	static {
@@ -126,13 +129,18 @@ public class Crypto {
 	public static String getPublicKey(KeyPair keyPair) {
 		if (keyPair != null) {
 			BCRSAPublicKey publicKey = (BCRSAPublicKey) keyPair.getPublic();
-			return publicKey.getModulus().toString(16);
+			String format = "%"+String.format("0%dx", KEY_SIZE/4);
+			return String.format(format, publicKey.getModulus());
 		}
 		return null;
 	}
 
-	public static byte[] decryptRSA(byte[] encrypted, PrivateKey privateKey) {
+	public static byte[] decryptRSA(String encryptedKey, PrivateKey privateKey) {
 		try { //约定好客户端只会传小于等于128字节的数据，否则就不解密
+			byte[] encrypted = new BigInteger(encryptedKey, 16).toByteArray();
+			if (encrypted.length % 2 == 1 && encrypted[0] == 0) { //转换的时候多转了一位
+				encrypted = Arrays.copyOfRange(encrypted, 1, encrypted.length);
+			}
 			Cipher cipher = Cipher.getInstance("RSA", provider);
 			cipher.init(Cipher.DECRYPT_MODE, privateKey);
 			byte[] ret = cipher.doFinal(encrypted);

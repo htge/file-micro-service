@@ -21,6 +21,7 @@ public class RedisSessionDB implements SessionDBImpl {
     public Session get(Serializable key) {
         Object value = template.opsForValue().get(key);
         if (value instanceof Session) {
+            logger.debug("get: "+value+" user: "+((Session)value).getAttribute(LoginManager.SESSION_USER_KEY));
             return (Session) value;
         }
         return null;
@@ -29,9 +30,7 @@ public class RedisSessionDB implements SessionDBImpl {
     public void update(Session session) {
         template.opsForValue().set(session.getId().toString(), session);
         String user = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
-        if (user != null) { //更新用户与session的关联关系
-            updateUser(session, user);
-        }
+        logger.debug("update: "+session+" user: "+session.getAttribute(LoginManager.SESSION_USER_KEY));
     }
 
     public void delete(Session session) {
@@ -39,15 +38,22 @@ public class RedisSessionDB implements SessionDBImpl {
     }
 
     /* 如果已经在其他地方登录，这里做剔出逻辑 */
-    private void updateUser(Session newSession, String user) {
-        Serializable oldId = (Serializable) userTemplate.opsForValue().get(user);
-        if (oldId != null && !oldId.equals(newSession.getId())) {
-            Session session = get(oldId);
-            //从缓存查到以后，旧的Session立即失效
-            if (session != null && session.getAttribute(LoginManager.SESSION_USER_KEY) != null) {
-                session.removeAttribute(LoginManager.SESSION_USER_KEY);
-                session.setTimeout(0);
-                update(session);
+    public Serializable getOldSessionId(String user) {
+        Object value = userTemplate.opsForValue().get(user);
+        if (value instanceof Serializable) {
+            return (Serializable) value;
+        }
+        return null;
+    }
+
+    public void updateUser(Session oldSession, Session newSession, String user) {
+        if (oldSession != null) {
+            Serializable oldId = oldSession.getId();
+            if (oldId != null && !oldId.equals(newSession.getId())) {
+                //旧的Session立即失效
+                oldSession.removeAttribute(LoginManager.SESSION_USER_KEY);
+                oldSession.setTimeout(0);
+                update(oldSession);
                 logger.info("remove SessionID:" + newSession.getId().toString());
             }
         }

@@ -1,7 +1,5 @@
 package com.htge.upload.controller.util;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import java.io.InputStream;
 
 public class FileItem {
@@ -17,6 +15,7 @@ public class FileItem {
         this.offset = offset;
     }
 
+    @SuppressWarnings("WeakerAccess")
     public FileItem() {
 
     }

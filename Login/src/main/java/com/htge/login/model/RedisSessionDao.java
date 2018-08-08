@@ -1,5 +1,6 @@
 package com.htge.login.model;
 
+import com.htge.login.util.LoginManager;
 import org.apache.shiro.cache.Cache;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.session.UnknownSessionException;
@@ -7,6 +8,8 @@ import org.apache.shiro.session.mgt.eis.EnterpriseCacheSessionDAO;
 import org.jboss.logging.Logger;
 
 import java.io.Serializable;
+import java.math.BigInteger;
+import java.util.Random;
 
 public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     private SessionDBImpl sessionDB = null;
@@ -19,6 +22,12 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
 
     public SessionDBImpl getSessionDB() {
         return sessionDB;
+    }
+
+    @Override
+    protected Serializable generateSessionId(Session session) {
+        BigInteger integer = new BigInteger(128, new Random());
+        return String.format("%032X", integer);
     }
 
     @Override
@@ -53,7 +62,26 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     @Override
     protected void doUpdate(Session session) {
         logger.debug("doUpdate: "+session.toString());
+        String user = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+
+        Session oldSession = null;
+        if (user != null) {
+            Serializable sessionId = sessionDB.getOldSessionId(user);
+            if (sessionId != null) {
+                try {
+                    oldSession = readSession(sessionId);
+                } catch (UnknownSessionException e) {
+                    //容错，sessionId可能非法
+                    logger.debug(e.getMessage());
+                }
+            }
+        }
         sessionDB.update(session);
+
+        //剔除逻辑
+        if (user != null) {
+            sessionDB.updateUser(oldSession, session, user);
+        }
     }
 
     @Override

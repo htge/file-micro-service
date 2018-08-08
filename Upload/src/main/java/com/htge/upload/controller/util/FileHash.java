@@ -17,6 +17,7 @@ public class FileHash {
 //        return null;
     }
 
+    @SuppressWarnings("unused")
     public static String getFileMD5(File file) {
         InputStream inputStream = null;
         String MD5 = null;

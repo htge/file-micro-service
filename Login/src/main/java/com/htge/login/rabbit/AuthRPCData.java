@@ -6,6 +6,7 @@ import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
 import com.htge.login.util.LoginManager;
 import net.sf.json.JSONObject;
+import org.apache.shiro.session.UnknownSessionException;
 import org.apache.shiro.session.mgt.SimpleSession;
 import org.jboss.logging.Logger;
 
@@ -61,7 +62,13 @@ public class AuthRPCData implements RPCData {
         Boolean isValidSession;
         try {
             if (sessionId != null) {
-                SimpleSession session = (SimpleSession) sessionDao.readSession(sessionId);
+                SimpleSession session;
+                try {
+                    session = (SimpleSession) sessionDao.readSession(sessionId);
+                } catch (UnknownSessionException e) {
+                    session = new SimpleSession();
+                    session.setId(sessionId);
+                }
                 if (session != null) {
                     //验证后，设置访问时间自动续期
                     session.validate();
@@ -74,6 +81,10 @@ public class AuthRPCData implements RPCData {
                         if (userinfo != null) {
                             role = userinfo.getRole();
                         }
+                    } else if (jsonObject.has("redirectPath")) {
+                        //未登录，记录跳转路径
+                        String redirectPath = jsonObject.getString("redirectPath");
+                        session.setAttribute(LoginManager.URL_KEY, redirectPath);
                     }
                 }
             }
@@ -82,15 +93,12 @@ public class AuthRPCData implements RPCData {
             //验证超时或者其他情况
             isValidSession = false;
         }
+
         ret.put("role", role);
         ret.put("isValidSession", isValidSession);
         //通过域名访问的话，要把具体域名和端口拿出来
         ret.put("rootPath", properties.getRootPath());
-        ret.put("logoutPath", properties.getRootPath()+"logout");
-        //管理员，添加设置路径
-        if (role == LoginManager.LoginRole.Admin) {
-            ret.put("settingPath", properties.getRootPath()+"setting");
-        }
+        ret.put("settingPath", properties.getRootPath()+"setting");
         return ret;
     }
 }

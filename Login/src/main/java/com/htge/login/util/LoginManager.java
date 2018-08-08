@@ -2,31 +2,42 @@ package com.htge.login.util;
 
 import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
+import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.web.servlet.SimpleCookie;
 import org.jboss.logging.Logger;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.util.Assert;
-import org.springframework.web.servlet.ModelAndView;
 
-import javax.annotation.Resource;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.KeyPair;
+import java.util.Date;
+import java.util.UUID;
 
-@Configuration
 @ConfigurationProperties(prefix = "server.session.cookie")
 public class LoginManager {
+	public static final String SESSION_KEYPAIR_KEY = "keypair";
 	public static final String SESSION_USER_KEY = "username";
+	public static final String URL_KEY = "url";
+	public static final String UUID_KEY = "uuid";
 	private static final Logger logger = Logger.getLogger(LoginManager.class);
 	private static String sessionId = "JSESSIONID";
 
-	@Resource(name = "simpleCookie")
 	private SimpleCookie simpleCookie;
+	private UserinfoDao userinfoDao;
 
+	public void setSimpleCookie(SimpleCookie simpleCookie) {
+		this.simpleCookie = simpleCookie;
+	}
+	public void setUserinfoDao(UserinfoDao userinfoDao) {
+		this.userinfoDao = userinfoDao;
+	}
+
+	// Spring cloud配置的属性
 	public void setName(String name) {
 		Assert.hasText(name, "server.session.cookie.name不能为空");
 		LoginManager.sessionId = name;
@@ -40,19 +51,57 @@ public class LoginManager {
 		public static final int Admin = 1;
 	}
 
-	//根据请求获取当前用户的角色：0=普通用户 1=管理员
-	public static int getUserRule(Subject subject, UserinfoDao userItenDao) {
-		if (isAuthorized(subject)) {
-			String username = (String)subject.getSession().getAttribute(SESSION_USER_KEY);
-			Userinfo userinfo = userItenDao.findUser(username);
-			if (userinfo != null) {
-				return userinfo.getRole();
-			}
-		}
-		return LoginRole.Error;
+	public enum ROLE {
+		Normal, Admin, Undefined
 	}
 
-	public static void updateSessionInfo(Session session, String username, int timeout) {
+	public boolean isValidSession(HttpServletRequest httpServletRequest) {
+		Session session = SecurityUtils.getSubject().getSession();
+		String sessionId = httpServletRequest.getRequestedSessionId();
+		return (sessionId == null || session.getId().equals(sessionId));
+	}
+
+	public ROLE role() {
+		Subject subject = SecurityUtils.getSubject();
+		if (isAuthorized(subject)) {
+			String username = (String)subject.getSession().getAttribute(SESSION_USER_KEY);
+			Userinfo userinfo = userinfoDao.findUser(username);
+			if (userinfo != null) {
+				switch (userinfo.getRole()) {
+					case LoginRole.Normal:
+						return ROLE.Normal;
+					case LoginRole.Admin:
+						return ROLE.Admin;
+					default:
+						break;
+				}
+			}
+		}
+		return ROLE.Undefined;
+	}
+
+	public KeyPair generateKeyPair() {
+		Session session = SecurityUtils.getSubject().getSession();
+		KeyPair keyPair = (KeyPair) session.getAttribute(SESSION_KEYPAIR_KEY);
+		if (keyPair == null) {
+			keyPair = Crypto.getCachedKeyPair();
+		}
+		session.setAttribute(SESSION_KEYPAIR_KEY, keyPair);
+		return keyPair;
+	}
+
+	public String generateUUID() {
+		Session session = SecurityUtils.getSubject().getSession();
+		String uuid = (String)session.getAttribute(UUID_KEY);
+		if (uuid == null) {
+			uuid = UUID.randomUUID().toString();
+		}
+		session.setAttribute(UUID_KEY, uuid);
+		return uuid;
+	}
+
+	public void updateSessionInfo(String username, int timeout) {
+		Session session = SecurityUtils.getSubject().getSession();
 		if (session == null || username == null) {
 			return;
 		}
@@ -62,20 +111,8 @@ public class LoginManager {
 		}
 	}
 
-	public static boolean isAuthorized(Subject subject) {
-		if (subject == null) {
-			return false;
-		}
-		Session session = subject.getSession();
-		if (session == null) {
-			logger.error("isAuthorized() empty session found.");
-			return false;
-		}
-		String username = (String)session.getAttribute(SESSION_USER_KEY);
-		return (username != null);
-	}
-
-	public static void Logout(Subject subject) {
+	public void Logout() {
+		Subject subject = SecurityUtils.getSubject();
 		Session session = subject.getSession();
 		Object username = session.getAttribute(SESSION_USER_KEY);
 		if (username != null) {
@@ -84,8 +121,9 @@ public class LoginManager {
 		subject.logout();
 	}
 
-	public static ModelAndView redirectToRoot(Session session, HttpServletRequest request, HttpServletResponse response) {
+	public void redirectToLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {
 		final String HttpSetCookieKey = "Set-Cookie";
+		Session session = SecurityUtils.getSubject().getSession();
 		String newSessionId = session.getId().toString();
 		String cookieInfo = response.getHeader(HttpSetCookieKey);
 
@@ -114,12 +152,11 @@ public class LoginManager {
 				}
 			}
 		}
-		try {
-			response.sendRedirect("/auth/");
-		} catch (IOException e) {
-			e.printStackTrace();
+		String requestPath = request.getServletPath();
+		if (!requestPath.equals("/auth/logout") && !requestPath.equals("/auth/")) {
+			session.setAttribute(URL_KEY, requestPath);
 		}
-		return null;
+		response.sendRedirect("/auth/");
 	}
 
 	/**
@@ -151,5 +188,24 @@ public class LoginManager {
 			ip = request.getRemoteAddr();
 		}
 		return ip;
+	}
+
+	private boolean isAuthorized(Subject subject) {
+		if (subject == null) {
+			return false;
+		}
+		Session session = subject.getSession();
+		if (session == null) {
+			logger.error("isAuthorized() empty session found.");
+			return false;
+		}
+		String username = (String)session.getAttribute(SESSION_USER_KEY);
+		return (username != null);
+	}
+
+	public boolean checkTimestamp(long timestamp) {
+		//客户端时间与服务器时间在-2.5min~+2.5min之间
+		long time = new Date().getTime() - timestamp;
+		return (time < 250000L && time > -250000L);
 	}
 }

@@ -5,7 +5,6 @@ import org.springframework.boot.context.embedded.ConfigurableEmbeddedServletCont
 import org.springframework.boot.context.embedded.EmbeddedServletContainerCustomizer;
 import org.springframework.boot.web.servlet.ErrorPage;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
@@ -15,14 +14,18 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
-import javax.annotation.Resource;
 import java.util.concurrent.Executor;
 
-@Configuration
 @EnableWebMvc
 @EnableAsync
 @ImportResource(locations={"classpath:webmvc.xml"})
 public class WebConfig extends WebMvcConfigurerAdapter implements AsyncConfigurer {
+    private ThreadPoolTaskExecutor taskExecutor;
+
+    public void setTaskExecutor(ThreadPoolTaskExecutor taskExecutor) {
+        this.taskExecutor = taskExecutor;
+    }
+
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         //映射静态资源文件
@@ -36,12 +39,9 @@ public class WebConfig extends WebMvcConfigurerAdapter implements AsyncConfigure
                 .addResourceLocations("classpath:/web/localization/");
     }
 
-    @Resource(name = "threadPoolTaskExecutor")
-    private ThreadPoolTaskExecutor executor;
-
     @Override
     public Executor getAsyncExecutor() {
-        return executor;
+        return taskExecutor;
     }
 
     @Override

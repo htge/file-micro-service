@@ -5,7 +5,7 @@
 
     <bean id="properties" class="com.htge.download.config.FileProperties"/>
 
-    <bean id="fileMap" class="com.htge.download.file.FileMap">
+    <bean id="fileMap" class="com.htge.download.controller.FileController">
         <property name="eTagCache" ref="etagCache"/>
         <property name="properties" ref="properties"/>
         <property name="loginClient">
