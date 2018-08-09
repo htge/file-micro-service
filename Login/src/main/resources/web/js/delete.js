@@ -56,7 +56,7 @@ $(document).ready(function () {
         const encryptedKey = rsa.encrypt(password);
 
         const data = {
-            "username": $('#username').html(),
+            "username": $('#username').attr("value"),
             "password": $("#password").val(),
             "timestamp": new Date().getTime(),
             "uuid": $("#uuid").attr("value")

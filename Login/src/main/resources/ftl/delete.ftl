@@ -28,12 +28,11 @@
                 <h3>确认用户删除</h3><br/>
             </div>
             <div class="form-group row no-gutters">
-                <label class="col-4 col-form-label-sm">将删除用户：</label>
-                <label class="col-8 col-form-label-sm" id="username">${username}</label>
+                <label class="col-12 col-form-label-sm">将要删除“${username}”用户</label>
                 <br/>
-                <label class="col-4 col-form-label-sm" for="password">管理员密码：</label>
-                <div class="col-8">
-                    <input class="form-control form-control-sm" type="password" id="password" value="" maxlength="32"/>
+                <label class="col-2 col-form-label-sm" for="password">密码：</label>
+                <div class="col-10">
+                    <input class="form-control form-control-sm" type="password" id="password" value="" maxlength="32" placeholder="当前管理账号的密码"/>
                 </div>
                 <br/>
                 <div class="col-12 invalid-feedback" id="errorMessage">
@@ -42,6 +41,7 @@
                 <div class="col-12" align="center">
                     <button type="submit" class="btn btn-primary">确认删除</button>
                 </div>
+                <input id="username" type="hidden" value="${username}"/>
                 <input id="rsaPub" type="hidden" value="${rsa}"/>
                 <input id="uuid" type="hidden" value="${uuid}"/>
             </div>
