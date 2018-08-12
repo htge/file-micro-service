@@ -15,10 +15,7 @@ import org.apache.shiro.authc.UsernamePasswordToken;
 import org.apache.shiro.session.Session;
 import org.apache.shiro.subject.Subject;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
 import java.security.KeyPair;
@@ -36,14 +33,9 @@ public class RegisterController {
         this.loginManager = loginManager;
     }
 
-    @RequestMapping(value="/register", method= RequestMethod.GET)
-    public Object registerPage() {
+    @GetMapping("/register")
+    public Object registerPage() throws Exception {
         KeyPair keyPair = loginManager.generateKeyPair();
-        if (keyPair == null) {
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("message", "keyPair无法生成");
-            return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
         String rsaPublicKey = Crypto.getPublicKey(keyPair);
         String uuid = loginManager.generateUUID();
 
@@ -53,12 +45,13 @@ public class RegisterController {
         return view;
     }
 
-    @RequestMapping(value="/register", method=RequestMethod.POST)
-    public ResponseEntity register(@ModelAttribute UserData userData) {
+    @ResponseBody
+    @PostMapping("/register")
+    public Object register(@ModelAttribute UserData userData) {
         Subject subject = SecurityUtils.getSubject();
         Session session = subject.getSession();
-        KeyPair keyPair = (KeyPair) session.getAttribute(LoginManager.SESSION_KEYPAIR_KEY);
-        String uuid = (String) session.getAttribute(LoginManager.UUID_KEY);
+        KeyPair keyPair = (KeyPair) session.getAttribute(LoginManager.SESSION.KEYPAIR_KEY);
+        String uuid = (String) session.getAttribute(LoginManager.SESSION.UUID_KEY);
         if (keyPair == null || uuid == null) {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("message", "不允许执行当前操作");
@@ -69,7 +62,7 @@ public class RegisterController {
         userData.decryptDatas(privateKey);
 
         String clientUuid = userData.getUuid();
-        if (!loginManager.checkTimestamp(userData.getTimestamp()) || clientUuid == null || !clientUuid.equals(uuid)) {
+        if (loginManager.isInvalidTimestamp(userData.getTimestamp()) || clientUuid == null || !clientUuid.equals(uuid)) {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("message", "数据格式不正确");
             return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
@@ -95,15 +88,15 @@ public class RegisterController {
         }
 
         //登录校验
-        String username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+        String username = (String)session.getAttribute(LoginManager.SESSION.USER_KEY);
         String password = userData.getPassword();
         UsernamePasswordToken token = new UsernamePasswordToken(username, password);
         try {
             subject.login(token);
 
             //校验成功
-            session.removeAttribute(LoginManager.SESSION_KEYPAIR_KEY);
-            session.removeAttribute(LoginManager.UUID_KEY);
+            session.removeAttribute(LoginManager.SESSION.KEYPAIR_KEY);
+            session.removeAttribute(LoginManager.SESSION.UUID_KEY);
 
             //注册新用户
             String userDataStr = Crypto.generateUserData(newUsername, newPassword);
@@ -128,8 +121,7 @@ public class RegisterController {
                 jsonObject.put("message", "注册新用户'"+newUsername+"'失败");
                 return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
             }
-            session.removeAttribute("keypair");
-            return new ResponseEntity<>("{}", HttpStatus.OK);
+            return new JSONObject();
         } catch (UnknownAccountException e) {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("message", "注册新用户'"+ userData.getUsername()+"'失败");

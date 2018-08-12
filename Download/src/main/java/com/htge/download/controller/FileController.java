@@ -270,7 +270,7 @@ public class FileController {
         ModelAndView result = new ModelAndView("filelist");
         if (loginData != null) {
             String settingPath = loginData.getSettingPath();
-            if (loginData.getRole() == LoginData.LoginRole.Admin) {
+            if (loginData.getRole() == LoginData.ROLE.Admin) {
                 result.addObject("role", "1");
             }
             if (settingPath != null) {

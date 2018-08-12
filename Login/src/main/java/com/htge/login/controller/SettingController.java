@@ -6,6 +6,7 @@ import com.htge.login.model.UserinfoDao;
 import com.htge.login.util.LoginManager;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.session.Session;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
@@ -22,10 +23,10 @@ public class SettingController {
         this.properties = properties;
     }
 
-    @RequestMapping(value="/setting", method= RequestMethod.GET)
-    public ModelAndView setting() {
+    @GetMapping("/setting")
+    public ModelAndView settingPage() {
         Session session = SecurityUtils.getSubject().getSession();
-        String oldUserName = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+        String oldUserName = (String)session.getAttribute(LoginManager.SESSION.USER_KEY);
 
         //当前用户信息
         Userinfo userinfo = userinfoDao.findUser(oldUserName);

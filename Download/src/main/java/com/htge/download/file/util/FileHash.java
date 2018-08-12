@@ -10,11 +10,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class FileHash {
     public static String getFileETag(File file) {
-//        String md5 = getFileMD5(file);
-//        if (md5 != null) {
         return String.format("\"%x-%x\"", file.lastModified(), file.length());
-//        }
-//        return null;
     }
 
     @SuppressWarnings({"UnusedDeclaration"})

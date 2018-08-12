@@ -20,11 +20,27 @@ import java.util.UUID;
 
 @ConfigurationProperties(prefix = "server.session.cookie")
 public class LoginManager {
-	public static final String SESSION_KEYPAIR_KEY = "keypair";
-	public static final String SESSION_USER_KEY = "username";
-	public static final String URL_KEY = "url";
-	public static final String UUID_KEY = "uuid";
 	private static final Logger logger = Logger.getLogger(LoginManager.class);
+
+	public class SESSION {
+		public static final String KEYPAIR_KEY = "keypair";
+		public static final String USER_KEY = "username";
+		public static final String URL_KEY = "url";
+		public static final String UUID_KEY = "uuid";
+	}
+
+	@SuppressWarnings({"unused", "WeakerAccess"})
+	public static class LoginRole {
+		public static final int Error = -1;
+		public static final int Normal = 0;
+		public static final int Admin = 1;
+	}
+
+	public enum ROLE {
+		Normal, Admin, Undefined
+	}
+
+	//通过配置文件获取的变量
 	private static String sessionId = "JSESSIONID";
 
 	private SimpleCookie simpleCookie;
@@ -44,17 +60,6 @@ public class LoginManager {
 		simpleCookie.setName(name);
 	}
 
-	@SuppressWarnings({"unused", "WeakerAccess"})
-	public static class LoginRole {
-		public static final int Error = -1;
-		public static final int Normal = 0;
-		public static final int Admin = 1;
-	}
-
-	public enum ROLE {
-		Normal, Admin, Undefined
-	}
-
 	public boolean isValidSession(HttpServletRequest httpServletRequest) {
 		Session session = SecurityUtils.getSubject().getSession();
 		String sessionId = httpServletRequest.getRequestedSessionId();
@@ -62,41 +67,47 @@ public class LoginManager {
 	}
 
 	public ROLE role() {
-		Subject subject = SecurityUtils.getSubject();
-		if (isAuthorized(subject)) {
-			String username = (String)subject.getSession().getAttribute(SESSION_USER_KEY);
-			Userinfo userinfo = userinfoDao.findUser(username);
-			if (userinfo != null) {
-				switch (userinfo.getRole()) {
-					case LoginRole.Normal:
-						return ROLE.Normal;
-					case LoginRole.Admin:
-						return ROLE.Admin;
-					default:
-						break;
+		try {
+			String username = (String) SecurityUtils.getSubject().getSession().getAttribute(SESSION.USER_KEY);
+			if (username != null) {
+				Userinfo userinfo = userinfoDao.findUser(username);
+				if (userinfo != null) {
+					switch (userinfo.getRole()) {
+						case LoginRole.Normal:
+							return ROLE.Normal;
+						case LoginRole.Admin:
+							return ROLE.Admin;
+						default:
+							break;
+					}
 				}
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 		return ROLE.Undefined;
 	}
 
-	public KeyPair generateKeyPair() {
+	public KeyPair generateKeyPair() throws Exception {
 		Session session = SecurityUtils.getSubject().getSession();
-		KeyPair keyPair = (KeyPair) session.getAttribute(SESSION_KEYPAIR_KEY);
+		KeyPair keyPair = (KeyPair) session.getAttribute(SESSION.KEYPAIR_KEY);
 		if (keyPair == null) {
 			keyPair = Crypto.getCachedKeyPair();
 		}
-		session.setAttribute(SESSION_KEYPAIR_KEY, keyPair);
+		if (keyPair == null) {
+			throw new Exception("不能生成RSA信息");
+		}
+		session.setAttribute(SESSION.KEYPAIR_KEY, keyPair);
 		return keyPair;
 	}
 
 	public String generateUUID() {
 		Session session = SecurityUtils.getSubject().getSession();
-		String uuid = (String)session.getAttribute(UUID_KEY);
+		String uuid = (String)session.getAttribute(SESSION.UUID_KEY);
 		if (uuid == null) {
 			uuid = UUID.randomUUID().toString();
 		}
-		session.setAttribute(UUID_KEY, uuid);
+		session.setAttribute(SESSION.UUID_KEY, uuid);
 		return uuid;
 	}
 
@@ -105,18 +116,18 @@ public class LoginManager {
 		if (session == null || username == null) {
 			return;
 		}
-		if (session.getAttribute(SESSION_USER_KEY) == null) { //防止模拟post请求后导致注销
+		if (session.getAttribute(SESSION.USER_KEY) == null) { //防止模拟post请求后导致注销
 			session.setTimeout(timeout); //登录后，设置为更长的过期时间
-			session.setAttribute(SESSION_USER_KEY, username);
+			session.setAttribute(SESSION.USER_KEY, username);
 		}
 	}
 
 	public void Logout() {
 		Subject subject = SecurityUtils.getSubject();
 		Session session = subject.getSession();
-		Object username = session.getAttribute(SESSION_USER_KEY);
+		Object username = session.getAttribute(SESSION.USER_KEY);
 		if (username != null) {
-			session.removeAttribute(SESSION_USER_KEY);
+			session.removeAttribute(SESSION.USER_KEY);
 		}
 		subject.logout();
 	}
@@ -154,7 +165,7 @@ public class LoginManager {
 		}
 		String requestPath = request.getServletPath();
 		if (!requestPath.equals("/auth/logout") && !requestPath.equals("/auth/")) {
-			session.setAttribute(URL_KEY, requestPath);
+			session.setAttribute(SESSION.URL_KEY, requestPath);
 		}
 		response.sendRedirect("/auth/");
 	}
@@ -190,22 +201,9 @@ public class LoginManager {
 		return ip;
 	}
 
-	private boolean isAuthorized(Subject subject) {
-		if (subject == null) {
-			return false;
-		}
-		Session session = subject.getSession();
-		if (session == null) {
-			logger.error("isAuthorized() empty session found.");
-			return false;
-		}
-		String username = (String)session.getAttribute(SESSION_USER_KEY);
-		return (username != null);
-	}
-
-	public boolean checkTimestamp(long timestamp) {
+	public boolean isInvalidTimestamp(long timestamp) {
 		//客户端时间与服务器时间在-2.5min~+2.5min之间
 		long time = new Date().getTime() - timestamp;
-		return (time < 250000L && time > -250000L);
+		return (time >= 250000L || time <= -250000L);
 	}
 }

@@ -1,6 +1,7 @@
 package com.htge.login.model;
 
 import com.htge.login.util.LoginManager;
+import org.apache.shiro.io.SerializationException;
 import org.apache.shiro.session.Session;
 import org.jboss.logging.Logger;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -19,18 +20,25 @@ public class RedisSessionDB implements SessionDBImpl {
 
     /* CRUD */
     public Session get(Serializable key) {
-        Object value = template.opsForValue().get(key);
-        if (value instanceof Session) {
-            logger.debug("get: "+value+" user: "+((Session)value).getAttribute(LoginManager.SESSION_USER_KEY));
-            return (Session) value;
+        try {
+            Object value = template.opsForValue().get(key);
+            if (value instanceof Session) {
+                logger.debug("get: " + value + " user: " + ((Session) value).getAttribute(LoginManager.SESSION.USER_KEY));
+                return (Session) value;
+            }
+        } catch (Exception e) {
+            //遇到非法数据，忽略异常，当做获取失败返回null
+            if (!(e instanceof SerializationException)) {
+                e.printStackTrace();
+            }
         }
         return null;
     }
 
     public void update(Session session) {
         template.opsForValue().set(session.getId().toString(), session);
-        String user = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
-        logger.debug("update: "+session+" user: "+session.getAttribute(LoginManager.SESSION_USER_KEY));
+        final String user = (String)session.getAttribute(LoginManager.SESSION.USER_KEY);
+        logger.debug("update: "+session+" user: "+user);
     }
 
     public void delete(Session session) {
@@ -51,7 +59,7 @@ public class RedisSessionDB implements SessionDBImpl {
             Serializable oldId = oldSession.getId();
             if (oldId != null && !oldId.equals(newSession.getId())) {
                 //旧的Session立即失效
-                oldSession.removeAttribute(LoginManager.SESSION_USER_KEY);
+                oldSession.removeAttribute(LoginManager.SESSION.USER_KEY);
                 oldSession.setTimeout(0);
                 update(oldSession);
                 logger.info("remove SessionID:" + newSession.getId().toString());

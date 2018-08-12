@@ -43,6 +43,7 @@ public class RedisUserItemCache implements UserItemCacheImpl {
                 }
             }
         });
+        addThread.setDaemon(true);
         addThread.start();
     }
 

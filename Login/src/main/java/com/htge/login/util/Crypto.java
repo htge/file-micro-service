@@ -12,12 +12,15 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.codec.binary.Base64;
 import org.bouncycastle.jcajce.provider.asymmetric.rsa.BCRSAPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jboss.logging.Logger;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 public class Crypto {
+	private static final Logger logger = Logger.getLogger(Crypto.class);
+
 	/*############### SHA384 ##############*/
 	private static final String asciiTable = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`~!@#$%^&*()_+-={}|[]\\:\";'<>?,./'";
 	private static String getStringFromByte(byte []bytes) {
@@ -94,10 +97,12 @@ public class Crypto {
 	static private final Lock lock = new ReentrantLock();
 	static private final int KEYPAIR_TIMEOUT = 1800000; //因为RSA信息产生的时间长，30分钟换一次
 	static private final int KEY_SIZE = 3072;
+	static private Timer timer;
 
 	static {
 		//永久的计时器，定时更换RSA密钥对
-		new Timer().schedule(new TimerTask() {
+		logger.info("init RSA...");
+		new Timer(true).scheduleAtFixedRate(new TimerTask() {
 			@Override
 			public void run() {
 				KeyPair newCachedKeyPair = generateRSAKeyPairs();
@@ -106,6 +111,10 @@ public class Crypto {
 				lock.unlock();
 			}
 		}, KEYPAIR_TIMEOUT, KEYPAIR_TIMEOUT);
+	}
+
+	public static void initRSA() {
+
 	}
 
 	private static KeyPair generateRSAKeyPairs() {
@@ -119,6 +128,7 @@ public class Crypto {
 		return null;
 	}
 
+	@SuppressWarnings({"unused", "WeakerAccess"})
 	public static KeyPair getCachedKeyPair() {
 		lock.lock();
 		KeyPair keyPair = cachedKeyPair;

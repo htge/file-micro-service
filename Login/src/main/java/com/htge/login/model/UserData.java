@@ -81,6 +81,16 @@ public class UserData {
 		encryptedKey = key;
 	}
 
+	private class InternalData {
+        static final String USERNAME_KEY = "username";
+        static final String PASSWORD_KEY = "password";
+        static final String NEW_PASSWORD_KEY = "newPassword";
+        static final String VALIDATION_KEY = "validation";
+        static final String ROLE_KEY = "role";
+        static final String TIMESTAMP_KEY = "timestamp";
+        static final String UUID_KEY = "uuid";
+    }
+
 	public void decryptDatas(PrivateKey privateKey) {
 		try {
 			byte[] decrypted = Crypto.decryptRSA(encryptedKey, privateKey);
@@ -88,21 +98,21 @@ public class UserData {
 				String decryptKey = new String(decrypted, "UTF-8");
 				String loginInfo = Crypto.decryptFromPage(encryptedData, decryptKey);
 				JSONObject jsonObject = JSONObject.fromObject(loginInfo);
-				if (jsonObject.containsKey("username")) {
-					username = jsonObject.getString("username");
+				if (jsonObject.containsKey(InternalData.USERNAME_KEY)) {
+					username = jsonObject.getString(InternalData.USERNAME_KEY);
 				}
-				password = jsonObject.getString("password");
-				if (jsonObject.containsKey("newPassword")) {
-					newPassword = jsonObject.getString("newPassword");
+				password = jsonObject.getString(InternalData.PASSWORD_KEY);
+				if (jsonObject.containsKey(InternalData.NEW_PASSWORD_KEY)) {
+					newPassword = jsonObject.getString(InternalData.NEW_PASSWORD_KEY);
 				}
-				if (jsonObject.containsKey("validation")) {
-					validation = jsonObject.getString("validation");
+				if (jsonObject.containsKey(InternalData.VALIDATION_KEY)) {
+					validation = jsonObject.getString(InternalData.VALIDATION_KEY);
 				}
-				if (jsonObject.containsKey("role")) {
-					role = jsonObject.getString("role");
+				if (jsonObject.containsKey(InternalData.ROLE_KEY)) {
+					role = jsonObject.getString(InternalData.ROLE_KEY);
 				}
-				timestamp = jsonObject.getLong("timestamp");
-				uuid = jsonObject.getString("uuid");
+				timestamp = jsonObject.getLong(InternalData.TIMESTAMP_KEY);
+				uuid = jsonObject.getString(InternalData.UUID_KEY);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

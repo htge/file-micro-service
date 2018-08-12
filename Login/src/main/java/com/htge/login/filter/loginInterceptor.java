@@ -32,6 +32,16 @@ public class loginInterceptor implements HandlerInterceptor {
         "/auth/images",
         "/auth/localization",
         "/favicon.ico",
+        "/error",
+    };
+
+    /**
+     * 管理员权限可访问的资源
+     */
+    private static final String[] ADMINRES = new String[]{
+        "/auth/register",
+        "/auth/delete",
+        "/auth/userList",
     };
 
     /**
@@ -49,6 +59,21 @@ public class loginInterceptor implements HandlerInterceptor {
         return false;
     }
 
+    /**
+     * 请求的资源是否需要管理员权限才可以访问
+     *
+     * @param resource 访问的资源
+     * @return 是否可以访问
+     */
+    private boolean isAdminResources(String resource) {
+        for (String adminres : ADMINRES) {
+            if (resource.startsWith(adminres)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public boolean preHandle(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Object o) throws IOException {
         //过滤掉一些静态资源
@@ -56,18 +81,20 @@ public class loginInterceptor implements HandlerInterceptor {
         if (isFilterResources(requestPath)) {
             return true;
         }
-        //可自定义错误处理
-        if (requestPath.equals("/error")) {
+        //一些页面不用检测权限，直接跳过
+        if (!requestPath.startsWith("/auth")) {
             return true;
         }
-
         //sessionid始终变化的情况
         if (!loginManager.isValidSession(httpServletRequest)) {
             logger.warn("session is not equal, redirect to login page...");
             loginManager.redirectToLogin(httpServletRequest, httpServletResponse);
             return false;
         }
-
+        if (requestPath.equals("/auth")) {
+            loginManager.redirectToLogin(httpServletRequest, httpServletResponse);
+            return false;
+        }
         //权限检测
         LoginManager.ROLE role = loginManager.role();
         if (requestPath.equals("/auth/") || requestPath.equals("/auth/login")) {
@@ -78,15 +105,13 @@ public class loginInterceptor implements HandlerInterceptor {
             }
             return true;
         }
-
-        //除了登录之外的其他页面
+        //未登录
         if (role == LoginManager.ROLE.Undefined) {
-            loginManager.redirectToLogin(httpServletRequest, httpServletResponse);
+            httpServletResponse.sendError(404);
             return false;
         }
-
         //只有管理员权限才能访问的页面
-        if (requestPath.equals("/auth/register") || requestPath.startsWith("/auth/delete") || requestPath.equals("/auth/userList")) {
+        if (isAdminResources(requestPath)) {
             if (role != LoginManager.ROLE.Admin) {
                 loginManager.redirectToLogin(httpServletRequest, httpServletResponse);
                 return false;

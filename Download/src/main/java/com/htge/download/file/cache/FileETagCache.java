@@ -27,15 +27,13 @@ public class FileETagCache extends FileETagGeneration<File> implements ETagCache
     public void setProperties(FileProperties properties) {
         hashCachePath = properties.getEtagPath();
         if (!properties.isWatcher()) {
-            if (properties.isCalcmd5()) {
-                File localFile = new File(properties.getLocalDir());
+            File localFile = new File(properties.getLocalDir());
 
-                //在线程做，遍历缓存md5信息
-                new Thread(() -> {
-                    generateTree(localFile.toPath());
-                    logger.info("All files generated.");
-                }).start();
-            }
+            //在线程做，遍历缓存ETag信息
+            new Thread(() -> {
+                generateTree(localFile.toPath());
+                logger.info("All files generated.");
+            }).start();
         }
     }
 

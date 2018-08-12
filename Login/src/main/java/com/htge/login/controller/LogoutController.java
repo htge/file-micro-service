@@ -1,6 +1,7 @@
 package com.htge.login.controller;
 
 import com.htge.login.util.LoginManager;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
@@ -17,7 +18,7 @@ public class LogoutController {
         this.loginManager = loginManager;
     }
 
-    @RequestMapping(value="/logout", method= RequestMethod.GET)
+    @GetMapping("/logout")
     public ModelAndView logoutPage(HttpServletRequest request, HttpServletResponse response) throws IOException {
         loginManager.Logout();
         loginManager.redirectToLogin(request, response);

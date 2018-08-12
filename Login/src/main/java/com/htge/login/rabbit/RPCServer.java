@@ -1,12 +1,14 @@
 package com.htge.login.rabbit;
 
 import com.rabbitmq.client.*;
+import org.apache.catalina.LifecycleException;
 import org.jboss.logging.Logger;
 import org.springframework.amqp.AmqpConnectException;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.Connection;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -49,6 +51,10 @@ public class RPCServer {
             while (isRunning) {
                 try {
                     runServer();
+                } catch (IllegalStateException e) {
+                    //出现了无法恢复的异常
+                    e.printStackTrace();
+                    break;
                 } catch (IOException e) {
                     //连接遇到意外关闭的情况，恢复
                     if (e.getCause() instanceof ShutdownSignalException) {

@@ -9,7 +9,6 @@ public class FileProperties {
     private String serverRoot = "/"; //相对路径
     private boolean authorization = false; //账号认证
     private boolean watcher = true; //检测文件变更
-    private boolean calcmd5 = false; //启动的时候会自动计算local-dir下，所有文件的MD5，耗时长
     private String etagPath = "D:/ETags"; //ETag如果通过Hash算法生成，可以允许缓存到本地以加快ETag计算速度
 
     public void setLocalDir(String localDir) {
@@ -54,14 +53,6 @@ public class FileProperties {
 
     public boolean isWatcher() {
         return watcher;
-    }
-
-    public void setCalcmd5(boolean calcmd5) {
-        this.calcmd5 = calcmd5;
-    }
-
-    public boolean isCalcmd5() {
-        return calcmd5;
     }
 
     public void setEtagPath(String etagPath) {

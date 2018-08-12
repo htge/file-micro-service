@@ -62,7 +62,7 @@ public class RedisSessionDao extends EnterpriseCacheSessionDAO {
     @Override
     protected void doUpdate(Session session) {
         logger.debug("doUpdate: "+session.toString());
-        String user = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+        String user = (String)session.getAttribute(LoginManager.SESSION.USER_KEY);
 
         Session oldSession = null;
         if (user != null) {

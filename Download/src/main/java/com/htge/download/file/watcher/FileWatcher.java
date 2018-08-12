@@ -22,16 +22,15 @@ public class FileWatcher {
         this.eTagCache = eTagCache;
     }
 
+    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
     public void setProperties(FileProperties properties) {
         if (properties.isWatcher()) {
-            if (properties.isCalcmd5()) {
-                File localFile = new File(properties.getLocalDir());
+            File localFile = new File(properties.getLocalDir());
 
-                //在线程做，遍历缓存md5信息
-                new Thread(()->
-                    watchPathTree(localFile.toPath())
-                ).start();
-            }
+            //在线程做，遍历缓存md5信息
+            new Thread(()-> {
+                watchPathTree(localFile.toPath());
+            }).start();
         }
     }
 
@@ -45,16 +44,17 @@ public class FileWatcher {
     }
 
     /* 增量更新 */
-    private void generateFileMD5Async(File file) {
-        Runnable runnable = () ->
-            generateFileMD5(file);
-        Thread thread = new Thread(runnable);
+    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
+    private void generateFileETagAsync(File file) {
+        Thread thread = new Thread(() -> {
+            generateFileETag(file);
+        });
         thread.setPriority(Thread.MIN_PRIORITY);
         thread.start();
     }
 
     /* 一次性获取 */
-    private void generateFileMD5(File file) {
+    private void generateFileETag(File file) {
         Path newPath = file.toPath();
         String eTag = FileHash.getFileETag(file);
         logger.info("generated "+newPath+" MD5: " + eTag);
@@ -63,7 +63,7 @@ public class FileWatcher {
 
     private void watchPathTree(Path path) {
         eTagCache.generateTree(path);
-        Runnable runnable = () -> {
+        new Thread(() -> {
             try {
                 watchService = FileSystems.getDefault().newWatchService();
                 while (true) {
@@ -89,7 +89,7 @@ public class FileWatcher {
                         } else {
                             logger.info("file = " + newPath + " event = " + kind);
                             if (event.kind() != StandardWatchEventKinds.ENTRY_DELETE) {
-                                generateFileMD5Async(newPath.toFile());
+                                generateFileETagAsync(newPath.toFile());
                             } else {
                                 eTagCache.removeETag(newPath);
                             }
@@ -106,7 +106,6 @@ public class FileWatcher {
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
-        };
-        new Thread(runnable).start();
+        }).start();
     }
 }

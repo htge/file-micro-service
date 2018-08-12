@@ -34,6 +34,11 @@
         <property name="userItemCache" ref="redisUserItemCache"/>
     </bean>
 
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="targetObject" ref="userinfoDao"/>
+        <property name="targetMethod" value="autoBuildUserCache"/>
+    </bean>
+
     <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
         <property name="dataSource" ref="comboPooledDataSource"/>
         <property name="transactionFactory">

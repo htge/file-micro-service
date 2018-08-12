@@ -21,11 +21,6 @@
         <property name="taskExecutor" ref="threadPoolTaskExecutor"/>
     </bean>
 
-    <bean class="com.htge.login.boot.ApplicationStartup">
-        <property name="properties" ref="properties"/>
-        <property name="userinfoDao" ref="userinfoDao"/>
-    </bean>
-
     <bean id="changeMap" class="com.htge.login.controller.ChangeController">
         <property name="userinfoDao" ref="userinfoDao"/>
         <property name="loginManager" ref="loginManager"/>

@@ -48,16 +48,4 @@ public class WebConfig extends WebMvcConfigurerAdapter implements AsyncConfigure
     public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
         return null;
     }
-
-    @Bean
-    public EmbeddedServletContainerCustomizer containerCustomizer(){
-        return new RedirectCustomizer();
-    }
-
-    private static class RedirectCustomizer implements EmbeddedServletContainerCustomizer {
-        @Override
-        public void customize(ConfigurableEmbeddedServletContainer configurableEmbeddedServletContainer) {
-            configurableEmbeddedServletContainer.addErrorPages(new ErrorPage(HttpStatus.BAD_REQUEST, "/auth/"));
-        }
-    }
 }

@@ -5,16 +5,20 @@ import net.sf.json.JSONObject;
 
 public class LoginData {
     private boolean isValidSession;
-    private int role;
+    private ROLE role;
     private String rootPath;
     private String settingPath;
     private String errorMessage;
 
     @SuppressWarnings("unused")
-    public static class LoginRole {
-        public static final int Error = -1;
-        public static final int Normal = 0;
-        public static final int Admin = 1;
+    private static class LoginRole {
+        static final int Error = -1;
+        static final int Normal = 0;
+        static final int Admin = 1;
+    }
+
+    public enum ROLE {
+        Normal, Admin, Undefined
     }
 
     LoginData(String data) throws JSONException {
@@ -24,7 +28,17 @@ public class LoginData {
         } else {
             isValidSession = jsonObject.getBoolean("isValidSession");
             rootPath = jsonObject.getString("rootPath");
-            role = jsonObject.getInt("role");
+            switch (jsonObject.getInt("role")) {
+                case LoginRole.Normal:
+                    role = ROLE.Normal;
+                    break;
+                case LoginRole.Admin:
+                    role = ROLE.Admin;
+                    break;
+                default:
+                    role = ROLE.Undefined;
+                    break;
+            }
             settingPath = jsonObject.getString("settingPath");
         }
     }
@@ -41,7 +55,7 @@ public class LoginData {
         return settingPath;
     }
 
-    public int getRole() {
+    public ROLE getRole() {
         return role;
     }
 

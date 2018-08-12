@@ -277,6 +277,17 @@ public class UserinfoDao {
 		actionThread.waitUntilDone();
 	}
 
+	public void autoBuildUserCache() {
+		if (loginProperties.isCacheEnabled()) {
+			//数据库的信息缓存到redis。数据量大的时候会很耗时，虽然一次性耗时长，但对大量数据的读写会有很大帮助
+			StopWatch stopWatch = new StopWatch();
+			stopWatch.start();
+			buildUserCache();
+			stopWatch.stop();
+			logger.info("autoBuildUserCache() elapsed: "+stopWatch.getTotalTimeMillis()+"ms");
+		}
+	}
+
 	private enum ActionItemType {
 		create, update, delete
 	}
@@ -472,6 +483,7 @@ public class UserinfoDao {
 
 		@Override
 		public void run() {
+			thread.waitUntilDone();
 			thread.quit();
 		}
 	}

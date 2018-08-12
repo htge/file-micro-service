@@ -25,7 +25,6 @@ import java.security.KeyPair;
 import java.security.PrivateKey;
 
 @RequestMapping("/auth")
-@SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
 public class LoginController {
     private LoginProperties properties;
     private LoginManager loginManager;
@@ -38,45 +37,25 @@ public class LoginController {
         this.loginManager = loginManager;
     }
 
-    static {
-        //服务器启动时，利用线程后台做个缓存
-        new Thread(() -> {
-            Crypto.getCachedKeyPair();
-        }).start();
-    }
+    @GetMapping("/")
+    public Object loginPage() throws Exception {
+        KeyPair keyPair = loginManager.generateKeyPair();
+        String rsaPublicKey = Crypto.getPublicKey(keyPair);
+        String uuid = loginManager.generateUUID();
 
-    @RequestMapping(value="/", method = RequestMethod.GET)
-    public Object loginPage() {
-        try {
-            KeyPair keyPair = loginManager.generateKeyPair();
-            if (keyPair == null) {
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("message", "keyPair不能为null");
-                return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.INTERNAL_SERVER_ERROR);
-            }
-            String rsaPublicKey = Crypto.getPublicKey(keyPair);
-            String uuid = loginManager.generateUUID();
-
-            ModelAndView view = new ModelAndView("login");
-            view.addObject("rsa", rsaPublicKey);
-            view.addObject("uuid", uuid);
-            return view;
-        } catch (Exception e) {
-            e.printStackTrace();
-
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("message", e.getMessage());
-            return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        ModelAndView view = new ModelAndView("login");
+        view.addObject("rsa", rsaPublicKey);
+        view.addObject("uuid", uuid);
+        return view;
     }
 
     @ResponseBody
-    @RequestMapping(value="/login", method = RequestMethod.POST)
+    @PostMapping("/login")
     public Object login(HttpServletRequest request, @ModelAttribute UserData userData) throws IOException {
         Subject subject = SecurityUtils.getSubject();
         Session session = subject.getSession();
-        KeyPair keyPair = (KeyPair) session.getAttribute(LoginManager.SESSION_KEYPAIR_KEY);
-        String uuid = (String) session.getAttribute(LoginManager.UUID_KEY);
+        KeyPair keyPair = (KeyPair) session.getAttribute(LoginManager.SESSION.KEYPAIR_KEY);
+        String uuid = (String) session.getAttribute(LoginManager.SESSION.UUID_KEY);
         if (keyPair == null || uuid == null) {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("message", "不允许执行当前操作");
@@ -87,7 +66,7 @@ public class LoginController {
         userData.decryptDatas(privateKey);
 
         String clientUuid = userData.getUuid();
-        if (!loginManager.checkTimestamp(userData.getTimestamp()) || clientUuid == null || !clientUuid.equals(uuid)) {
+        if (loginManager.isInvalidTimestamp(userData.getTimestamp()) || clientUuid == null || !clientUuid.equals(uuid)) {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("message", "数据格式不正确");
             return ResponseGeneration.ResponseEntityWithJsonObject(jsonObject, HttpStatus.BAD_REQUEST);
@@ -105,10 +84,10 @@ public class LoginController {
             loginManager.updateSessionInfo(username, properties.getSessionTimeout());
 
             //清理之前的旧信息
-            session.removeAttribute(LoginManager.SESSION_KEYPAIR_KEY);
-            session.removeAttribute(LoginManager.UUID_KEY);
+            session.removeAttribute(LoginManager.SESSION.KEYPAIR_KEY);
+            session.removeAttribute(LoginManager.SESSION.UUID_KEY);
 
-            String lastUri = (String) session.getAttribute(LoginManager.URL_KEY);
+            String lastUri = (String) session.getAttribute(LoginManager.SESSION.URL_KEY);
             if (lastUri == null) {
                 return new JSONObject();
             }

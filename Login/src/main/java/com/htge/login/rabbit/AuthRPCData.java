@@ -75,7 +75,7 @@ public class AuthRPCData implements RPCData {
                     session.setLastAccessTime(new Date());
                     sessionDao.update(session);
 
-                    username = (String)session.getAttribute(LoginManager.SESSION_USER_KEY);
+                    username = (String)session.getAttribute(LoginManager.SESSION.USER_KEY);
                     if (username != null) {
                         Userinfo userinfo = userinfoDao.findUser(username);
                         if (userinfo != null) {
@@ -84,7 +84,7 @@ public class AuthRPCData implements RPCData {
                     } else if (jsonObject.has("redirectPath")) {
                         //未登录，记录跳转路径
                         String redirectPath = jsonObject.getString("redirectPath");
-                        session.setAttribute(LoginManager.URL_KEY, redirectPath);
+                        session.setAttribute(LoginManager.SESSION.URL_KEY, redirectPath);
                     }
                 }
             }
