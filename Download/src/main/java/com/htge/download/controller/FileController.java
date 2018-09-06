@@ -19,7 +19,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FilenameFilter;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -45,7 +44,7 @@ public class FileController {
     }
 
     @RequestMapping(value={"/", "/**"})
-    public Object list(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    public Object list(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String contextPath = URLDecoder.decode(request.getRequestURI(), "UTF-8");
         String relativePath = "";
 
@@ -115,16 +114,18 @@ public class FileController {
             if (sessionId == null) {
                 sessionId = request.getSession().getId();
             }
-            String requestPath;
-            int port = request.getServerPort();
-            if (port != 80 && port != 443) {
-                requestPath = String.format("//%s:%s%s", request.getServerName(), request.getServerPort(), contextPath);
-            } else {
-                requestPath = String.format("//%s%s", request.getServerName(), contextPath);
+            String requestPath = null;
+            if (request.getMethod().equals("GET")) {
+                int port = request.getServerPort();
+                if (port != 80 && port != 443) {
+                    requestPath = String.format("//%s:%s%s", request.getServerName(), request.getServerPort(), contextPath);
+                } else {
+                    requestPath = String.format("//%s%s", request.getServerName(), contextPath);
+                }
             }
             loginData = loginClient.getLoginInfo(sessionId, requestPath);
             if (loginData == null) {
-                return new ModelAndView("error", "message", "RPC服务器出错，请联系管理员");
+                throw new Exception("RPC服务器出错，请联系管理员");
             }
             if (loginData.getErrorMessage() != null) {
                 logger.error("errorMessage = "+loginData.getErrorMessage());
@@ -144,11 +145,11 @@ public class FileController {
             if (file.isDirectory()) {
                 return list(contextPath, basePath, loginData); //显示列表信息
             } else { //文件夹不存在
-                return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
+                return new ModelAndView("error", "errorMessage", "操作失败！文件不存在或文件已经被删除！");
             }
         } else {
             if (!file.exists()) { //文件不存在
-                return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
+                return new ModelAndView("error", "errorMessage", "操作失败！文件不存在或文件已经被删除！");
             }
         }
         if (fileRange != null) {
@@ -168,23 +169,19 @@ public class FileController {
         String encodedName;
         String lastModified;
 
-        private FileInfo(File file) {
-            try {
-                isFile = file.isFile();
-                modified = file.lastModified();
-                lastModified = getLastModifiedStr(modified);
-                String filename = file.getName();
-                if (isFile) {
-                    name = filename;
-                    encodedName =  URLEncoder.encode(filename, "UTF-8");
-                    size = getFileSizeStr(file.length());
-                } else {
-                    name = filename + "/";
-                    encodedName =  URLEncoder.encode(filename, "UTF-8") + "/";
-                    size = "";
-                }
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
+        private FileInfo(File file) throws UnsupportedEncodingException {
+            isFile = file.isFile();
+            modified = file.lastModified();
+            lastModified = getLastModifiedStr(modified);
+            String filename = file.getName();
+            if (isFile) {
+                name = filename;
+                encodedName =  URLEncoder.encode(filename, "UTF-8");
+                size = getFileSizeStr(file.length());
+            } else {
+                name = filename + "/";
+                encodedName =  URLEncoder.encode(filename, "UTF-8") + "/";
+                size = "";
             }
         }
 
@@ -222,10 +219,10 @@ public class FileController {
         }
     }
 
-    private ModelAndView list(String contextPath, String basePath, LoginData loginData) {
+    private ModelAndView list(String contextPath, String basePath, LoginData loginData) throws Exception {
         File file = new File(basePath);
         if (!file.exists()) {
-            return new ModelAndView("error", "message", "操作失败！文件不存在或文件已经被删除！");
+            return new ModelAndView("error", "errorMessage", "操作失败！文件不存在或文件已经被删除！");
         }
         String basePathName = "", parentPathName = ""; //具体用途见底下的数据结构
         if (!contextPath.equalsIgnoreCase(properties.getServerRoot())) { //首页不显示返回上一级
@@ -258,12 +255,7 @@ public class FileController {
             });
             for (FileInfo f : modified) {
 //				logger.info("file name:" + f.getFilename());
-
-                try {
-                    dataSources.add(f.mapValue());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                dataSources.add(f.mapValue());
             }
         }
 
@@ -314,18 +306,14 @@ public class FileController {
         return new ResponseEntity<byte[]>(headers, HttpStatus.BAD_REQUEST);
     }
 
-    private FileRange generateFileRange(String range, File file) {
+    private FileRange generateFileRange(String range, File file) throws IllegalArgumentException {
         if (range == null) { //正常下载
             return new FileRange(file.length());
         } else { //断点续传
             String[] ranges = range.split("=");
             if (ranges.length == 2) { //Range: bytes=xxx-xxx
                 range = ranges[1].replace(" ", ""); //xxx-xxx
-                try {
-                    return new FileRange(range, file.length());
-                } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
-                }
+                return new FileRange(range, file.length());
             }
         }
         return null;

@@ -2,14 +2,12 @@ package com.htge.login.shrio;
 
 import com.htge.login.model.UserinfoDao;
 import com.htge.login.model.Userinfo;
+import com.htge.login.util.LoginManager;
 import org.apache.shiro.authc.*;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
-
-import java.util.HashSet;
-import java.util.Set;
 
 public class UserRealm extends AuthorizingRealm {
     private UserinfoDao userinfoDao = null;
@@ -20,10 +18,21 @@ public class UserRealm extends AuthorizingRealm {
 
     @Override
     protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principalCollection) {
+        String username = (String)principalCollection.getPrimaryPrincipal();
+        Userinfo userinfo = userinfoDao.findUser(username);
+
         SimpleAuthorizationInfo authorizationInfo = new SimpleAuthorizationInfo();
-        Set<String> permissions = new HashSet<>();
-        permissions.add("anon"); //写死这个值
-        authorizationInfo.setStringPermissions(permissions);
+        if (userinfo != null) {
+            if (userinfo.getRole() == LoginManager.LoginRole.Admin) {
+                //管理员
+                authorizationInfo.addRole("admin");
+                authorizationInfo.addStringPermission("admin");
+            }
+            //普通用户
+            authorizationInfo.addRole("user");
+            authorizationInfo.addStringPermission("user");
+        }
+        //匿名用户的情况下不会触发此回调，不考虑
         return authorizationInfo;
     }
 

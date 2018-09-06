@@ -12,9 +12,6 @@
     <link rel="stylesheet" href="/up/css/bootstrap.min.css">
     <link rel="stylesheet" href="/up/css/bootstrap-theme.min.css">
 
-    <script type="text/javascript">
-        var zNodes = ${tree};
-    </script>
     <script type="text/javascript" src="/up/js/jquery-1.4.4.min.js"></script>
     <script type="text/javascript" src="/up/js/jquery.ztree.core.min.js"></script>
     <script type="text/javascript" src="/up/js/jquery.cookie.js"></script>
@@ -83,6 +80,7 @@
                     <ul id="treeDemo" class="ztree"></ul>
                 </div>
             </div>
+            <input id="nodes" type="hidden" value='${tree}'>
         </div>
     </div>
     <br/>

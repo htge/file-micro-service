@@ -1,1 +1,1 @@
-org.springframework.context.ApplicationListener=com.htge.login.boot.ApplicationStartingEventListener
+org.springframework.context.ApplicationListener=com.htge.login.event.ApplicationStartingEventListener

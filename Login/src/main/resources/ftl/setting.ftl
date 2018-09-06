@@ -36,13 +36,13 @@
                 <#if role=='管理员'><li class="nav-item">
                     <a id="register" class="nav-link" href="#">注册新账户</a>
                 </li>
-                <#if uploadPath?exists><li class="nav-item">
-                    <a id="upload" class="nav-link" href="#">上传文件</a>
-                    <input id="uploadUrl" type="hidden" value="${uploadPath}"/>
-                </li></#if>
-            </#if><li class="nav-item">
-                <a id="logoff" class="nav-link" href="#">注销</a>
-            </li>
+                    <#if uploadPath?exists><li class="nav-item">
+                        <a id="upload" class="nav-link" href="#">上传文件</a>
+                        <input id="uploadUrl" type="hidden" value="${uploadPath}"/>
+                    </li></#if>
+                </#if><li class="nav-item">
+            <a id="logoff" class="nav-link" href="#">注销</a>
+        </li>
         </ul>
     </div>
 </nav>

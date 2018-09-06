@@ -1,19 +1,17 @@
 package com.htge.upload.controller;
 
 import com.htge.upload.config.UploadProperties;
-import com.htge.upload.controller.util.FileHash;
-import com.htge.upload.controller.util.FileItem;
-import com.htge.upload.controller.util.FileOperationQueue;
-import com.htge.upload.controller.util.FileOperationQueueManager;
-import com.htge.upload.rabbit.login.LoginClient;
+import com.htge.upload.controller.util.*;
 import com.htge.upload.rabbit.login.LoginData;
 import com.htge.upload.rabbit.upload.UploadClient;
 import net.sf.json.JSONObject;
 import org.jboss.logging.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
@@ -21,106 +19,52 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
-import java.net.URLDecoder;
 import java.util.*;
 
 @RequestMapping("/up")
 public class UploadController {
     final private Logger logger = Logger.getLogger(UploadController.class);
 
+    private UploadUtil uploadUtil;
     private UploadClient uploadClient;
-    private LoginClient loginClient;
     private UploadProperties uploadProperties;
 
+    public void setUploadUtil(UploadUtil uploadUtil) {
+        this.uploadUtil = uploadUtil;
+    }
     public void setUploadClient(UploadClient uploadClient) {
         this.uploadClient = uploadClient;
-    }
-    public void setLoginClient(LoginClient loginClient) {
-        this.loginClient = loginClient;
     }
     public void setUploadProperties(UploadProperties uploadProperties) {
         this.uploadProperties = uploadProperties;
     }
 
-    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr"})
-    private void buildFileList(File dir, String pid, ArrayList<JSONObject> arrayList) {
-        File[] dirs = dir.listFiles((File pathname) -> {
-            return pathname.isDirectory();
-        });
-        if (dirs != null) {
-            for (File subDir : dirs) {
-                //节点
-                String name = subDir.getName();
-                String id = pid+name+"/";
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("id", id);
-                jsonObject.put("pId", pid);
-                jsonObject.put("name", name);
-                arrayList.add(jsonObject);
-
-                buildFileList(subDir, id, arrayList);
-            }
-        }
-    }
-
-    @SuppressWarnings({"Convert2MethodRef", "CodeBlock2Expr", "unused"})
-    private Map<String, Object> buildFileTree(File dir) {
-        File[] dirs = dir.listFiles((File pathname) -> {
-            return pathname.isDirectory();
-        });
-        Map<String, Object> tree = null;
-        if (dirs != null) {
-            tree = new TreeMap<>();
-            for (File subDir : dirs) {
-                Map<String, Object> subTree = buildFileTree(subDir);
-                tree.put(subDir.getName(), subTree);
-            }
-        }
-        return tree;
-    }
-
-    private Object getLoginStatus(HttpServletRequest request, HttpServletResponse response, GetLoginStatusCallback callback) {
-        if (uploadProperties.isAuthorization()) {
-            LoginData loginData;
-            try {
-                String contextPath = URLDecoder.decode(request.getRequestURI(), "UTF-8");
-                String sessionId = request.getRequestedSessionId();
-                if (sessionId == null) {
-                    sessionId = request.getSession().getId();
-                }
-                String requestPath;
-                int port = request.getServerPort();
-                if (port != 80 && port != 443) {
-                    requestPath = String.format("//%s:%s%s", request.getServerName(), request.getServerPort(), contextPath);
-                } else {
-                    requestPath = String.format("//%s%s", request.getServerName(), contextPath);
-                }
-                loginData = loginClient.getLoginInfo(sessionId, requestPath);
-                if (loginData == null) {
-                    return new ModelAndView("error", "errorMessage", "RPC服务器出错，请联系管理员");
-                }
-                if (loginData.getErrorMessage() != null) {
-                    logger.error("errorMessage = " + loginData.getErrorMessage());
-                    response.sendRedirect(loginData.getRootPath());
-                    return null;
-                }
-                if (!loginData.isValidSession()) {
-                    response.sendRedirect(loginData.getRootPath());
-                    return null;
-                }
-                if (loginData.getRole() != LoginData.LoginRole.Admin) {
-                    return new ModelAndView("error", "errorMessage", "所在的用户没有权限查看此页面");
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return callback.execute();
+    @GetMapping("")
+    public Object uploadPageRedirect(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String path = request.getServletPath();
+        response.sendRedirect(path+"/");
+        return null;
     }
 
     @RequestMapping(value = "/", method = RequestMethod.GET)
-    public Object uploadPage(HttpServletRequest request, HttpServletResponse response) {
-        return getLoginStatus(request, response, () -> {
+    public Object uploadPage(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        return uploadUtil.getLoginStatus(request, (UploadUtil.LoginStatus status, LoginData loginData) -> {
+            switch (status) {
+                case RPC_Failed:
+                    throw new Exception("RPC服务器出错，请联系管理员");
+                case NOT_Logined:
+                    if (loginData.getErrorMessage() != null) {
+                        logger.error("errorMessage = " + loginData.getErrorMessage());
+                    }
+                    response.sendRedirect(loginData.getRootPath());
+                    return null;
+                case LOGIN_Denied:
+                    ModelAndView view = new ModelAndView("error", HttpStatus.BAD_REQUEST);
+                    view.addObject("errorMessage", "所在的用户没有权限查看此页面");
+                    return view;
+                case Success:
+                    break;
+            }
             ArrayList<JSONObject> arrayList = new ArrayList<>();
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("id", "/");
@@ -128,7 +72,7 @@ public class UploadController {
             jsonObject.put("name", "/");
             jsonObject.put("open", true);
             arrayList.add(jsonObject);
-            buildFileList(new File(uploadProperties.getRootPath()), "/", arrayList);
+            uploadUtil.buildFileList(new File(uploadProperties.getRootPath()), "/", arrayList);
             String arrayStr = arrayList.toString();
             ModelAndView uploadView = new ModelAndView("upload");
             uploadView.addObject("tree", arrayStr);
@@ -139,71 +83,132 @@ public class UploadController {
     /*
      主要的压力瓶颈在前端的JS和服务器硬盘
      */
+    @ResponseBody
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
-    public Object uploadFile(MultipartHttpServletRequest request, HttpServletResponse response) {
-        return getLoginStatus(request, response, () -> {
-            JSONObject object = new JSONObject();
-            File destFile = null;
-            try {
-                final MultipartFile file = request.getFile("file");
-                if (file == null || file.isEmpty()) {
-                    object.put("error", "file could not be empty!");
-                    object.put("errorCode", 1);
-                    return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
-                }
-                final String filename = file.getOriginalFilename();
-                final String relativePath = request.getParameter("relative");
-                final long fileSize = file.getSize();
-                String totalStr = request.getParameter("total");
-                Long total, offset, index;
-                if (totalStr != null) {
-                    total = Long.parseLong(request.getParameter("total"));
-                    offset = Long.parseLong(request.getParameter("offset"));
-                    index = Long.parseLong(request.getParameter("index"));
-                } else {
-                    //不是分块传输的情况
-                    total = 1L;
-                    offset = 0L;
-                    index = 0L;
-                }
-                final String allHash = request.getParameter("all");
-                final String hash = request.getParameter("hash");
+    public Object uploadFile(MultipartHttpServletRequest request) throws Exception {
+        class UploadErrorCode {
+            private static final int ERROR_FILE_EMPTY = 1;
+            private static final int ERROR_DIR_NOT_EXISTS = 2;
+            private static final int ERROR_NETWORK = 3;
+            private static final int ERROR_RPC = 4;
+            private static final int ERROR_NOT_LOGINED = 5;
+            private static final int ERROR_LOGIN_DENIED = 6;
+            private static final int ERROR_INTERNAL_QUEUE = 7;
+        }
 
-                //准备文件信息
-                final String uploadPath = uploadProperties.getRootPath() + relativePath;
-                final File dir = new File(uploadPath);
-                if (!dir.exists()) {
-                    object.put("error", "dir was not exist!");
-                    object.put("errorCode", 2);
+        JSONObject object = new JSONObject();
+
+        final MultipartFile file = request.getFile("file");
+        if (file == null || file.isEmpty()) {
+            object.put("error", "文件没有内容");
+            object.put("errorCode", UploadErrorCode.ERROR_FILE_EMPTY);
+            return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
+        }
+
+        //准备文件信息
+        final String relativePath = request.getParameter("relative");
+        final String uploadPath = uploadProperties.getRootPath() + relativePath;
+        final File dir = new File(uploadPath);
+        if (!dir.exists()) {
+            object.put("error", "指定的目录不存在");
+            object.put("errorCode", UploadErrorCode.ERROR_DIR_NOT_EXISTS);
+            return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        final String filename = file.getOriginalFilename();
+        final String destFilename = uploadPath + "/" + filename;
+        final File destFile = new File(destFilename);
+
+        return uploadUtil.getLoginStatus(request, (UploadUtil.LoginStatus status, LoginData loginData) -> {
+            switch (status) {
+                case RPC_Failed:
+                    if (!destFile.delete()) {
+                        logger.warn("Delete file \""+destFilename+"\" failed?");
+                    }
+
+                    object.put("error", "服务器内部错误：登录RPC异常");
+                    object.put("errorCode", UploadErrorCode.ERROR_RPC);
                     return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
-                }
+                case NOT_Logined:
+                    if (!destFile.delete()) {
+                        logger.warn("Delete file \""+destFilename+"\" failed?");
+                    }
 
-                //校验MD5
-                final InputStream inputStream = file.getInputStream();
-                String part = FileHash.getMD5(inputStream, null);
-                if (!part.equals(hash)) {
-                    inputStream.close();
-                    object.put("error", "Validation failed, network error?");
-                    object.put("errorCode", 5);
-                    logger.info("Validation failed, network error? index="+index);
+                    if (loginData.getErrorMessage() != null) {
+                        object.put("error", loginData.getErrorMessage());
+                    } else {
+                        object.put("error", "未登录");
+                    }
+                    object.put("errorCode", UploadErrorCode.ERROR_NOT_LOGINED);
                     return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
-                }
+                case LOGIN_Denied:
+                    if (!destFile.delete()) {
+                        logger.warn("Delete file \""+destFilename+"\" failed?");
+                    }
 
-                //回到流的初始端
-                inputStream.reset();
+                    object.put("error", "没有权限");
+                    object.put("errorCode", UploadErrorCode.ERROR_LOGIN_DENIED);
+                    return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
+                case Success:
+                    break;
+            }
 
-                final String destFilename = uploadPath + "/" + filename;
-                destFile = new File(destFilename);
-                FileOperationQueue operationQueue;
-                if (index == 0) {
-                    operationQueue = FileOperationQueueManager.createInstance(destFile, total);
-                } else {
-                    operationQueue = FileOperationQueueManager.getInstance(destFile);
+            final long fileSize = file.getSize();
+            String totalStr = request.getParameter("total");
+            Long total, offset, index;
+            if (totalStr != null) {
+                total = Long.parseLong(request.getParameter("total"));
+                offset = Long.parseLong(request.getParameter("offset"));
+                index = Long.parseLong(request.getParameter("index"));
+            } else {
+                //不是分块传输的情况
+                total = 1L;
+                offset = 0L;
+                index = 0L;
+            }
+            final String allHash = request.getParameter("all");
+            final String hash = request.getParameter("hash");
+
+            //校验MD5
+            final InputStream inputStream = file.getInputStream();
+            String part = FileHash.getMD5(inputStream, null);
+            if (!part.equals(hash)) {
+                inputStream.close();
+                object.put("error", "网络异常，校验失败");
+                object.put("errorCode", UploadErrorCode.ERROR_NETWORK);
+                logger.info("Validation failed, network error? index="+index);
+                return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
+            }
+
+            //回到流的初始端
+            inputStream.reset();
+
+            FileOperationQueue operationQueue;
+            if (index == 0) {
+                operationQueue = FileOperationQueueManager.createInstance(destFile, total);
+            } else {
+                operationQueue = FileOperationQueueManager.getInstance(destFile);
+            }
+            if (operationQueue == null) {
+                inputStream.close();
+                object.put("error", "内部队列异常");
+                object.put("errorCode", UploadErrorCode.ERROR_INTERNAL_QUEUE);
+
+                //删除文件，下次可以重来
+                if (!destFile.delete()) {
+                    logger.warn("Delete file \""+destFilename+"\" failed?");
                 }
-                if (operationQueue == null) {
-                    inputStream.close();
-                    object.put("error", "internal queue error.");
-                    object.put("errorCode", 6);
+                return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+
+            //之后的inputStream由queue对象内部负责关闭
+            operationQueue.addItem(new FileItem(inputStream, fileSize, index, offset));
+
+            if (index+1 == total) {
+                operationQueue.waitAll();
+                if (!operationQueue.getMD5().equals(allHash)) {
+                    object.put("error", "网络错误，可能存在中间人攻击");
+                    object.put("errorCode", UploadErrorCode.ERROR_NETWORK);
 
                     //删除文件，下次可以重来
                     if (!destFile.delete()) {
@@ -211,52 +216,19 @@ public class UploadController {
                     }
                     return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
                 }
+                //给下载服务器发验证好的文件信息
+                if (!uploadClient.setUploadFileETag(destFilename, FileHash.getFileETag(destFile))) {
+                    object.put("error", "服务器内部错误：下载RPC异常");
+                    object.put("errorCode", UploadErrorCode.ERROR_RPC);
 
-                //之后的inputStream由queue对象内部负责关闭
-                operationQueue.addItem(new FileItem(inputStream, fileSize, index, offset));
-
-                if (index+1 == total) {
-                    operationQueue.waitAll();
-                    if (!operationQueue.getMD5().equals(allHash)) {
-                        object.put("error", "network error or man in middle.");
-                        object.put("errorCode", 7);
-
-                        //删除文件，下次可以重来
-                        if (!destFile.delete()) {
-                            logger.warn("Delete file \""+destFilename+"\" failed?");
-                        }
-                        return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
-                    }
-                    //给下载服务器发验证好的文件信息
-                    if (!uploadClient.setUploadFileETag(destFilename, FileHash.getFileETag(destFile))) {
-                        object.put("error", "RPC failed!");
-                        object.put("errorCode", 8);
-
-                        //删除文件，下次可以重来
-                        if (!destFile.delete()) {
-                            logger.warn("Delete file \""+destFilename+"\" failed?");
-                        }
-                        return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                object.put("error", e.getMessage());
-                object.put("errorCode", -1);
-                //删除文件，下次可以重来
-                if (destFile != null) {
+                    //删除文件，下次可以重来
                     if (!destFile.delete()) {
-                        logger.warn("Delete file \"" + destFile + "\" failed?");
+                        logger.warn("Delete file \""+destFilename+"\" failed?");
                     }
+                    return new ResponseEntity<>(object, HttpStatus.INTERNAL_SERVER_ERROR);
                 }
-                return new ResponseEntity<>(object, HttpStatus.BAD_REQUEST);
             }
-            //{}
-            return new ResponseEntity<>(object, HttpStatus.OK);
+            return object;
         });
-    }
-
-    private interface GetLoginStatusCallback {
-        Object execute();
     }
 }

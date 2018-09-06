@@ -16,7 +16,6 @@ public class RecvUploadServer {
     private static final ReentrantLock createLock = new ReentrantLock();
     private static boolean isCreated = false;
     private static boolean isRunning = true;
-    private final Object waitObject = new Object();
 
     private Channel channel = null;
     private Connection connection = null;
@@ -102,6 +101,8 @@ public class RecvUploadServer {
     }
 
     private void runServer() throws IOException {
+        final Object waitObject = new Object(); //有异常的时候会需要重建，无异常的话会始终阻塞
+        final int consumerCount = 5; //消费者个数，并行量
         connection = factory.createConnection();
         channel = connection.createChannel(false);
 
@@ -123,6 +124,12 @@ public class RecvUploadServer {
                 consumer = new DefaultConsumer(channel) {
                     @Override
                     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+                        //收到事件后马上批量建立消费者，直到满足需求为止
+                        while (channel.consumerCount(queueName) <= consumerCount) {
+                            channel.basicConsume(queueName, false, consumer);
+                        }
+
+                        //处理事件
                         AMQP.BasicProperties replyProps = new AMQP.BasicProperties
                                 .Builder()
                                 .correlationId(properties.getCorrelationId())
@@ -141,15 +148,7 @@ public class RecvUploadServer {
                                 logger.info("basicAck: consumerTag = "+envelope.getDeliveryTag());
                                 channel.basicAck(envelope.getDeliveryTag(), false);
                                 //无用的consumer，必须释放，否则可能导致服务资源占满
-                                try {
-                                    channel.basicCancel(consumerTag);
-                                } catch (Exception e) {
-                                    //取消不了，忽略它
-                                    logger.warn("ignored: "+e.getMessage());
-                                }
-                                synchronized (waitObject) {
-                                    waitObject.notifyAll();
-                                }
+                                channel.basicCancel(consumerTag);
                             }
                         }
                     }
@@ -168,7 +167,10 @@ public class RecvUploadServer {
                 };
             }
 
-            channel.basicConsume(queueName, false, consumer);
+            //批量建立消费者，直到满足需求为止
+            while (channel.consumerCount(queueName) < consumerCount) {
+                channel.basicConsume(queueName, false, consumer);
+            }
             synchronized (waitObject) {
                 try {
                     waitObject.wait();

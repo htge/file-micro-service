@@ -25,6 +25,7 @@ public class LoginManager {
 	public class SESSION {
 		public static final String KEYPAIR_KEY = "keypair";
 		public static final String USER_KEY = "username";
+		public static final String IP_KEY = "ip";
 		public static final String URL_KEY = "url";
 		public static final String UUID_KEY = "uuid";
 	}
@@ -111,7 +112,7 @@ public class LoginManager {
 		return uuid;
 	}
 
-	public void updateSessionInfo(String username, int timeout) {
+	public void updateSessionInfo(String username, String ip, int timeout) {
 		Session session = SecurityUtils.getSubject().getSession();
 		if (session == null || username == null) {
 			return;
@@ -119,6 +120,7 @@ public class LoginManager {
 		if (session.getAttribute(SESSION.USER_KEY) == null) { //防止模拟post请求后导致注销
 			session.setTimeout(timeout); //登录后，设置为更长的过期时间
 			session.setAttribute(SESSION.USER_KEY, username);
+			session.setAttribute(SESSION.IP_KEY, ip);
 		}
 	}
 
@@ -164,7 +166,7 @@ public class LoginManager {
 			}
 		}
 		String requestPath = request.getServletPath();
-		if (!requestPath.equals("/auth/logout") && !requestPath.equals("/auth/")) {
+		if (request.getMethod().equals("GET") && !requestPath.equals("/auth/logout")) {
 			session.setAttribute(SESSION.URL_KEY, requestPath);
 		}
 		response.sendRedirect("/auth/");

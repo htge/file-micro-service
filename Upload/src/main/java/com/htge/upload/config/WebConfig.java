@@ -15,21 +15,19 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter
 @Configuration
 @EnableWebMvc
 @EnableAsync
-@ImportResource({"classpath:webmvc.xml", "classpath:upload.xml"})
+@ImportResource("classpath:upload.xml")
 public class WebConfig extends WebMvcConfigurerAdapter {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         //映射静态资源文件
-        registry.addResourceHandler("/up/html/**")
-                .addResourceLocations("classpath:/web/html/");
-        registry.addResourceHandler("/up/images/**")
-                .addResourceLocations("classpath:/web/images/");
         registry.addResourceHandler("/up/css/**")
-                .addResourceLocations("classpath:/web/css/");
+                .addResourceLocations("classpath:/html/css/");
         registry.addResourceHandler("/up/js/**")
-                .addResourceLocations("classpath:/web/js/");
+                .addResourceLocations("classpath:/html/js/");
         registry.addResourceHandler("/up/fonts/**")
-                .addResourceLocations("classpath:/web/fonts/");
+                .addResourceLocations("classpath:/html/fonts/");
+        registry.addResourceHandler("/up/images/**")
+                .addResourceLocations("classpath:/html/images/");
     }
 
     @Bean

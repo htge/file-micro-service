@@ -1,12 +1,12 @@
 package com.htge.login.config;
 
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
 
 @Configuration
-@EnableAutoConfiguration
-@ImportResource(locations={"classpath:login.xml","classpath:jdbc.xml", "classpath:redis.xml", "classpath:shiro.xml", "classpath:rabbitmq.xml"})
+@EnableCaching
+@ImportResource("classpath:login.xml")
 public class AppConfig {
 
 }

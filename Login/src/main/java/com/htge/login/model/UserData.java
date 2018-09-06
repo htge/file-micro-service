@@ -3,9 +3,7 @@ package com.htge.login.model;
 import com.htge.login.util.Crypto;
 import net.sf.json.JSONObject;
 
-import java.math.BigInteger;
 import java.security.PrivateKey;
-import java.util.Arrays;
 
 /*登录，注册使用的数据结构*/
 public class UserData {
@@ -19,6 +17,15 @@ public class UserData {
 	private String newPassword;
 	private long timestamp;
 	private String uuid;
+
+	@SuppressWarnings("unused")
+	public UserData() {
+	}
+
+	public UserData(JSONObject dataObject) {
+		encryptedData = dataObject.getString("data");
+		encryptedKey = dataObject.getString("key");
+	}
 
 	public String getUsername() {
 		return this.username;

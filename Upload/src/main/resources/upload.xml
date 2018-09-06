@@ -11,8 +11,15 @@
         <property name="factory" ref="rabbitConnectionFactory"/>
     </bean>
     <bean class="com.htge.upload.controller.UploadController">
-        <property name="loginClient" ref="loginClient"/>
+        <property name="uploadUtil">
+            <bean class="com.htge.upload.controller.util.UploadUtil">
+                <property name="loginClient" ref="loginClient"/>
+                <property name="uploadProperties" ref="uploadProperties"/>
+            </bean>
+        </property>
         <property name="uploadClient" ref="uploadClient"/>
         <property name="uploadProperties" ref="uploadProperties"/>
     </bean>
+    <bean class="com.htge.upload.aop.ElapsedTime"/>
+    <import resource="classpath:webmvc.xml"/>
 </beans>

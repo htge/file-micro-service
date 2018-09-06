@@ -13,6 +13,7 @@
     <bean id="simpleCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
         <property name="name" value="JSESSIONID"/>
         <property name="httpOnly" value="true"/>
+        <property name="maxAge" value="604800"/><!--7天-->
     </bean>
 
     <bean id="webSessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
@@ -25,6 +26,7 @@
                 <property name="sessionManager" ref="webSessionManager"/>
             </bean>
         </property>
+        <property name="sessionIdUrlRewritingEnabled" value="false" /><!-- 去掉 JSESSIONID -->
         <property name="sessionIdCookieEnabled" value="true"/>
         <property name="sessionIdCookie" ref="simpleCookie"/>
         <property name="sessionDAO" ref="redisSessionDao"/>
@@ -56,9 +58,34 @@
 
     <bean class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
         <property name="securityManager" ref="webSecurityManager"/>
-        <property name="loginUrl" value="/"/>
-        <property name="unauthorizedUrl" value="/"/>
-        <property name="filterChainDefinitions" value="/** = anon"/>
+        <property name="loginUrl" value="/auth/"/>
+        <property name="unauthorizedUrl" value="/auth/"/>
+        <property name="filters">
+            <map>
+                <entry key="authc">
+                    <bean class="com.htge.login.filter.IPAuthFilter"/>
+                </entry>
+                <entry key="perms">
+                    <!--自定义权限过滤器，用于restful api-->
+                    <bean class="com.htge.login.filter.PermissionFilter"/>
+                </entry>
+             </map>
+        </property>
+        <property name="filterChainDefinitions">
+            <value>
+                /favicon.ico = anon
+                /auth = anon
+                /auth/ = anon
+                /auth/check = anon
+                /auth/css/** = anon
+                /auth/images/** = anon
+                /auth/js/** = anon
+                /auth/localization/** = anon
+                /auth/user = anon,perms["admin:POST,admin:DELETE,user:PUT,anon:GET"]
+                /auth/userList = roles[admin]
+                /** = authc
+            </value>
+        </property>
     </bean>
 
     <bean class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>

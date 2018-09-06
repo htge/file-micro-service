@@ -21,36 +21,27 @@
         <property name="taskExecutor" ref="threadPoolTaskExecutor"/>
     </bean>
 
-    <bean id="changeMap" class="com.htge.login.controller.ChangeController">
-        <property name="userinfoDao" ref="userinfoDao"/>
+    <bean class="com.htge.login.controller.PageController">
         <property name="loginManager" ref="loginManager"/>
-    </bean>
-
-    <bean id="deleteMap" class="com.htge.login.controller.DeleteController">
-        <property name="userinfoDao" ref="userinfoDao"/>
-        <property name="loginManager" ref="loginManager"/>
-    </bean>
-
-    <bean id="loginMap" class="com.htge.login.controller.LoginController">
-        <property name="loginManager" ref="loginManager"/>
-        <property name="properties" ref="properties"/>
-    </bean>
-
-    <bean id="registerMap" class="com.htge.login.controller.RegisterController">
-        <property name="userinfoDao" ref="userinfoDao"/>
-        <property name="loginManager" ref="loginManager"/>
-    </bean>
-
-    <bean id="settingMap" class="com.htge.login.controller.SettingController">
         <property name="userinfoDao" ref="userinfoDao"/>
         <property name="properties" ref="properties"/>
+    </bean>
+
+    <bean class="com.htge.login.controller.UserController">
+        <property name="properties" ref="properties"/>
+        <property name="userinfoDao" ref="userinfoDao"/>
+        <property name="loginManager" ref="loginManager"/>
     </bean>
 
     <bean id="userListMap" class="com.htge.login.controller.UserListController">
         <property name="userinfoDao" ref="userinfoDao"/>
     </bean>
 
-    <bean class="com.htge.login.controller.LogoutController">
-        <property name="loginManager" ref="loginManager"/>
-    </bean>
+    <bean class="com.htge.login.aop.ElapsedTime"/>
+
+    <import resource="classpath:jdbc.xml"/>
+    <import resource="classpath:redis.xml"/>
+    <import resource="classpath:Rabbitmq.xml"/>
+    <import resource="classpath:shiro.xml"/>
+    <import resource="classpath:webmvc.xml"/>
 </beans>

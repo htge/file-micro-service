@@ -42,4 +42,10 @@
     <bean id="etagCache" class="com.htge.download.file.cache.FileETagCache">
         <property name="properties" ref="properties"/>
     </bean>
+
+    <bean class="com.htge.download.config.WebConfig"/>
+
+    <bean class="com.htge.download.aop.ElapsedTime"/>
+
+    <import resource="classpath:webmvc.xml"/>
 </beans>
